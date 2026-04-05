@@ -1,1 +1,660 @@
-file:///Users/kylesiegel/Library/Application%20Support/Claude/local-agent-mode-sessions/32463f65-c04b-465b-836a-41abae151a1a/01de91ce-8965-4426-8775-042d7ec04080/local_605f63e9-8a2f-48d2-b871-d45ad257c065/outputs/masters-draft-2026.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2026 Masters Draft & Leaderboard</title>
+<style>
+  :root {
+    --masters-green: #006747;
+    --masters-dark: #004d35;
+    --masters-gold: #c8a951;
+    --masters-cream: #f5f0e1;
+    --bg: #0a0f0d;
+    --card-bg: #141f1a;
+    --card-border: #1e3328;
+    --text: #e8e0cc;
+    --text-dim: #8a9b91;
+    --cut-red: #c0392b;
+    --leader-gold: #ffd700;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Georgia', 'Times New Roman', serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  header {
+    background: linear-gradient(135deg, var(--masters-dark) 0%, var(--masters-green) 50%, var(--masters-dark) 100%);
+    padding: 24px 0; text-align: center; border-bottom: 3px solid var(--masters-gold); position: relative; overflow: hidden;
+  }
+  header::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: repeating-linear-gradient(45deg, transparent, transparent 20px, rgba(255,255,255,0.015) 20px, rgba(255,255,255,0.015) 40px); }
+  header h1 { font-size: 2.2em; color: var(--masters-gold); text-shadow: 0 2px 4px rgba(0,0,0,0.5); letter-spacing: 3px; text-transform: uppercase; position: relative; }
+  header p { color: var(--masters-cream); font-style: italic; margin-top: 4px; font-size: 1em; position: relative; }
+
+  .tabs { display: flex; justify-content: center; gap: 0; background: var(--masters-dark); border-bottom: 2px solid var(--card-border); flex-wrap: wrap; }
+  .tab-btn { background: transparent; color: var(--text-dim); border: none; padding: 14px 28px; font-size: 0.95em; font-family: inherit; cursor: pointer; transition: all 0.3s; letter-spacing: 1px; text-transform: uppercase; }
+  .tab-btn:hover { color: var(--masters-cream); background: rgba(255,255,255,0.05); }
+  .tab-btn.active { color: var(--masters-gold); background: var(--card-bg); border-bottom: 3px solid var(--masters-gold); }
+
+  .tab-content { display: none; padding: 24px; max-width: 1200px; margin: 0 auto; }
+  .tab-content.active { display: block; }
+
+  /* ===== DRAFT ===== */
+  .draft-status { text-align: center; padding: 16px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 8px; margin-bottom: 20px; font-size: 1.1em; }
+  .draft-status .round { color: var(--masters-gold); font-weight: bold; }
+  .draft-status .drafter { color: #4ecdc4; font-weight: bold; }
+  .draft-grid { display: grid; grid-template-columns: 80px repeat(5, 1fr); gap: 2px; margin-bottom: 24px; background: var(--card-border); border-radius: 8px; overflow: hidden; }
+  .draft-header { background: var(--masters-green); color: var(--masters-gold); padding: 12px 8px; text-align: center; font-weight: bold; font-size: 0.9em; letter-spacing: 1px; }
+  .draft-round-label { background: var(--masters-dark); color: var(--masters-gold); padding: 12px 8px; text-align: center; font-weight: bold; display: flex; align-items: center; justify-content: center; font-size: 0.85em; }
+  .draft-cell { background: var(--card-bg); padding: 8px; display: flex; align-items: center; justify-content: center; min-height: 52px; }
+  .draft-cell select { width: 100%; padding: 8px 4px; background: #1a2b23; color: var(--text); border: 1px solid var(--card-border); border-radius: 4px; font-family: inherit; font-size: 0.85em; cursor: pointer; }
+  .draft-cell select:focus { outline: none; border-color: var(--masters-gold); box-shadow: 0 0 0 2px rgba(200,169,81,0.3); }
+  .draft-cell .picked { color: var(--masters-gold); font-weight: bold; font-size: 0.9em; text-align: center; }
+  .draft-cell.active-pick { background: rgba(200,169,81,0.15); border: 2px solid var(--masters-gold); }
+  .draft-cell.future-pick { background: rgba(255,255,255,0.02); }
+  .draft-controls { display: flex; gap: 12px; justify-content: center; margin-top: 20px; }
+  .pick-number { font-size: 0.7em; color: var(--text-dim); display: block; margin-bottom: 2px; }
+  .snake-arrow { color: var(--masters-gold); font-size: 0.7em; opacity: 0.6; }
+
+  .btn { padding: 12px 28px; border: none; border-radius: 6px; font-family: inherit; font-size: 1em; cursor: pointer; transition: all 0.2s; letter-spacing: 1px; }
+  .btn-primary { background: var(--masters-green); color: var(--masters-gold); border: 1px solid var(--masters-gold); }
+  .btn-primary:hover { background: var(--masters-dark); transform: translateY(-1px); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+  .btn-danger { background: transparent; color: var(--cut-red); border: 1px solid var(--cut-red); }
+  .btn-danger:hover { background: rgba(192,57,43,0.15); }
+
+  /* ===== TEAMS PAGE ===== */
+  .teams-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; }
+  .team-panel { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; overflow: hidden; }
+  .team-panel.leader { border-color: var(--masters-gold); box-shadow: 0 0 24px rgba(200,169,81,0.15); }
+  .team-panel-header { padding: 18px 20px; display: flex; justify-content: space-between; align-items: center; }
+  .team-panel.leader .team-panel-header { background: linear-gradient(135deg, rgba(200,169,81,0.2), rgba(200,169,81,0.05)); }
+  .team-panel-header .tp-rank { font-size: 2em; font-weight: bold; color: var(--text-dim); margin-right: 14px; }
+  .team-panel.leader .tp-rank { color: var(--leader-gold); }
+  .team-panel-header .tp-name { font-size: 1.4em; font-weight: bold; color: var(--masters-cream); flex: 1; }
+  .team-panel-header .tp-total { font-size: 1.8em; font-weight: bold; padding: 4px 16px; border-radius: 8px; }
+
+  .tp-roster { padding: 0 0 8px; }
+  .tp-golfer-row { display: flex; align-items: center; padding: 12px 20px; border-top: 1px solid var(--card-border); transition: background 0.15s; }
+  .tp-golfer-row:hover { background: rgba(255,255,255,0.03); }
+  .tp-golfer-row.cut-golfer { opacity: 0.45; }
+  .tp-golfer-num { font-size: 0.75em; color: var(--text-dim); width: 28px; text-align: center; }
+  .tp-golfer-name { flex: 1; font-size: 1em; margin-left: 8px; }
+  .tp-golfer-name .mc-badge { font-size: 0.7em; color: var(--cut-red); background: rgba(192,57,43,0.2); padding: 2px 6px; border-radius: 3px; margin-left: 8px; vertical-align: middle; }
+  .tp-golfer-score { font-size: 1.1em; font-weight: bold; min-width: 55px; text-align: right; }
+  .tp-golfer-pos { font-size: 0.8em; color: var(--text-dim); min-width: 40px; text-align: right; margin-left: 8px; }
+
+  .tp-footer { padding: 12px 20px; border-top: 2px solid var(--card-border); display: flex; justify-content: space-between; align-items: center; background: rgba(0,103,71,0.1); }
+  .tp-footer-label { color: var(--text-dim); font-size: 0.9em; text-transform: uppercase; letter-spacing: 1px; }
+  .tp-footer-score { font-size: 1.3em; font-weight: bold; }
+
+  .mc-rule-banner { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 8px; padding: 14px 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+  .mc-rule-banner .rule-text { color: var(--text-dim); font-size: 0.9em; }
+  .mc-rule-banner .rule-value { color: var(--cut-red); font-weight: bold; font-size: 1.1em; }
+
+  /* ===== STANDINGS ===== */
+  .standings-table { width: 100%; border-collapse: collapse; background: var(--card-bg); border-radius: 8px; overflow: hidden; }
+  .standings-table th { background: var(--masters-green); color: var(--masters-gold); padding: 12px 16px; text-align: left; font-size: 0.85em; letter-spacing: 1px; text-transform: uppercase; }
+  .standings-table td { padding: 14px 16px; border-bottom: 1px solid var(--card-border); }
+  .standings-table tr:hover { background: rgba(255,255,255,0.03); }
+  .standings-table .st-rank { font-weight: bold; font-size: 1.2em; width: 50px; }
+  .standings-table .st-name { font-size: 1.1em; font-weight: bold; }
+  .standings-table .st-golfers { font-size: 0.85em; color: var(--text-dim); }
+  .standings-table .st-score { font-size: 1.2em; font-weight: bold; text-align: right; }
+  .standings-table tr:first-child .st-rank { color: var(--leader-gold); }
+  .standings-table .st-best { color: #2ecc71; font-size: 0.85em; }
+  .standings-table .st-worst { color: var(--cut-red); font-size: 0.85em; }
+
+  .section-title { color: var(--masters-gold); font-size: 1.3em; margin: 28px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--card-border); letter-spacing: 2px; text-transform: uppercase; }
+
+  /* ===== TOURNAMENT LB ===== */
+  .tournament-lb { width: 100%; border-collapse: collapse; background: var(--card-bg); border-radius: 8px; overflow: hidden; }
+  .tournament-lb th { background: var(--masters-green); color: var(--masters-gold); padding: 10px 12px; text-align: left; font-size: 0.85em; letter-spacing: 1px; text-transform: uppercase; }
+  .tournament-lb td { padding: 8px 12px; border-bottom: 1px solid var(--card-border); font-size: 0.9em; }
+  .tournament-lb tr:hover { background: rgba(255,255,255,0.03); }
+  .tournament-lb .drafted { color: var(--masters-gold); font-weight: bold; }
+  .tournament-lb .cut-row { opacity: 0.5; color: var(--cut-red); }
+
+  /* ===== SCORES TAB ===== */
+  .settings-panel { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+  .settings-panel h3 { color: var(--masters-gold); margin-bottom: 12px; letter-spacing: 1px; }
+  .score-input-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px; }
+  .score-input-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+  .score-input-row label { font-size: 0.8em; color: var(--text-dim); min-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .score-input-row input { width: 55px; padding: 4px 6px; background: #1a2b23; color: var(--text); border: 1px solid var(--card-border); border-radius: 4px; font-family: inherit; text-align: center; }
+  .score-input-row select { padding: 4px 6px; background: #1a2b23; color: var(--text); border: 1px solid var(--card-border); border-radius: 4px; font-family: inherit; font-size: 0.85em; }
+
+  .api-status { padding: 8px 16px; border-radius: 6px; font-size: 0.85em; text-align: center; margin-bottom: 16px; }
+  .api-status.connected { background: rgba(46,204,113,0.15); color: #2ecc71; border: 1px solid rgba(46,204,113,0.3); }
+  .api-status.disconnected { background: rgba(231,76,60,0.15); color: #e74c3c; border: 1px solid rgba(231,76,60,0.3); }
+  .api-status.manual { background: rgba(52,152,219,0.15); color: #3498db; border: 1px solid rgba(52,152,219,0.3); }
+
+  .live-dot { display: inline-block; width: 8px; height: 8px; background: #e74c3c; border-radius: 50%; margin-right: 6px; animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .refresh-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+  .refresh-info { color: var(--text-dim); font-size: 0.85em; font-style: italic; }
+
+  .score-under { color: #e74c3c; } .score-over { color: #3498db; } .score-even { color: var(--masters-cream); }
+  .bg-under { background: rgba(231,76,60,0.1); } .bg-over { background: rgba(52,152,219,0.1); } .bg-even { background: rgba(255,255,255,0.05); }
+
+  .no-draft-msg { text-align: center; padding: 60px 20px; color: var(--text-dim); font-size: 1.1em; font-style: italic; }
+  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--masters-green); color: var(--masters-cream); padding: 14px 24px; border-radius: 8px; border: 1px solid var(--masters-gold); font-family: inherit; box-shadow: 0 4px 20px rgba(0,0,0,0.4); transform: translateY(100px); opacity: 0; transition: all 0.3s; z-index: 100; }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  @media (max-width: 768px) {
+    header h1 { font-size: 1.4em; }
+    .draft-grid { grid-template-columns: 50px repeat(5, 1fr); font-size: 0.8em; }
+    .tab-btn { padding: 10px 14px; font-size: 0.8em; }
+    .teams-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>The Masters 2026</h1>
+  <p>Draft & Leaderboard Tracker</p>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('draft', this)">Draft Board</button>
+  <button class="tab-btn" onclick="switchTab('teams', this)">Teams</button>
+  <button class="tab-btn" onclick="switchTab('leaderboard', this)">Standings</button>
+  <button class="tab-btn" onclick="switchTab('scores', this)">Manage Scores</button>
+</div>
+
+<!-- DRAFT TAB -->
+<div id="tab-draft" class="tab-content active">
+  <div class="draft-status" id="draftStatus">Loading draft...</div>
+  <div class="draft-grid" id="draftGrid"></div>
+  <div class="draft-controls">
+    <button class="btn btn-primary" id="undoBtn" onclick="undoPick()" disabled>Undo Last Pick</button>
+    <button class="btn btn-danger" onclick="resetDraft()">Reset Draft</button>
+  </div>
+</div>
+
+<!-- TEAMS TAB -->
+<div id="tab-teams" class="tab-content">
+  <div class="refresh-bar">
+    <div>
+      <span class="live-dot" id="liveDot" style="display:none;"></span>
+      <span class="refresh-info" id="refreshInfo">Scores update from Manage Scores tab or ESPN fetch</span>
+    </div>
+    <button class="btn btn-primary" onclick="fetchLiveScores()">Refresh Scores</button>
+  </div>
+  <div class="mc-rule-banner" id="mcBanner">
+    <span class="rule-text">Missed Cut Penalty: Highest score of the day + 5</span>
+    <span class="rule-value" id="mcPenaltyDisplay">--</span>
+  </div>
+  <div id="teamsContainer"></div>
+</div>
+
+<!-- STANDINGS TAB -->
+<div id="tab-leaderboard" class="tab-content">
+  <div class="refresh-bar">
+    <span class="refresh-info">Team standings ranked by combined score to par</span>
+    <button class="btn btn-primary" onclick="fetchLiveScores()">Refresh Scores</button>
+  </div>
+  <div id="standingsContainer"></div>
+  <h2 class="section-title">Full Tournament Leaderboard</h2>
+  <div id="tournamentLeaderboard"></div>
+</div>
+
+<!-- SCORES TAB -->
+<div id="tab-scores" class="tab-content">
+  <div class="settings-panel">
+    <h3>Score Management</h3>
+    <p style="color:var(--text-dim); margin-bottom:12px; font-size:0.9em;">
+      Click "Fetch Live Scores" to pull from ESPN, or manually enter/edit scores below. Scores save automatically.
+    </p>
+    <div style="display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="fetchLiveScores()">Fetch Live Scores (ESPN)</button>
+      <button class="btn btn-danger" onclick="clearAllScores()">Clear All Scores</button>
+    </div>
+    <div id="apiStatus" class="api-status manual">Manual mode — enter scores below or click Fetch to pull live data</div>
+  </div>
+  <div class="settings-panel">
+    <h3>Golfer Scores (Total to Par)</h3>
+    <p style="color:var(--text-dim); margin-bottom:12px; font-size:0.85em;">
+      Enter total score relative to par (e.g., -5, +3, E for even). Set status to "Cut" for missed cuts.
+    </p>
+    <div class="score-input-grid" id="scoreInputs"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const PLAYERS = ['Jordan', 'Kyle', 'Adam', 'Josh', 'Jon'];
+const ROUNDS = 5;
+const GOLFERS = [
+  "Ludvig Åberg","Daniel Berger","Akshay Bhatia","Keegan Bradley","Michael Brennan",
+  "Jacob Bridgeman","Sam Burns","Ángel Cabrera","Brian Campbell","Patrick Cantlay",
+  "Wyndham Clark","Corey Conners","Fred Couples","Jason Day","Bryson DeChambeau",
+  "Nico Echavarria","Harris English","Matt Fitzpatrick","Tommy Fleetwood","Ryan Fox",
+  "Sergio García","Ryan Gerard","Chris Gotterup","Max Greyserman","Ben Griffin",
+  "Harry Hall","Brian Harman","Tyrrell Hatton","Russell Henley","Nicolai Højgaard",
+  "Rasmus Højgaard","Max Homa","Viktor Hovland","Sungjae Im","Casey Jarvis",
+  "Dustin Johnson","Zach Johnson","Si Woo Kim","Michael Kim","Kurt Kitayama",
+  "Jake Knapp","Brooks Koepka","Min Woo Lee","Haotong Li","Shane Lowry",
+  "Robert MacIntyre","Hideki Matsuyama","Matt McCarty","Rory McIlroy","Tom McKibbin",
+  "Maverick McNealy","Collin Morikawa","Rasmus Neergaard-Petersen","Alex Noren",
+  "Andrew Novak","José María Olazábal","Carlos Ortiz","Marco Penge","Aldrich Potgieter",
+  "Jon Rahm","Aaron Rai","Patrick Reed","Kristoffer Reitan","Davis Riley",
+  "Justin Rose","Xander Schauffele","Scottie Scheffler","Charl Schwartzel","Adam Scott",
+  "Vijay Singh","Cameron Smith","J.J. Spaun","Jordan Spieth","Samuel Stevens",
+  "Sepp Straka","Nick Taylor","Justin Thomas","Sami Valimaki","Bubba Watson",
+  "Mike Weir","Danny Willett","Gary Woodland","Cameron Young"
+].sort();
+
+function getSnakeDraftOrder() {
+  const order = [];
+  for (let r = 0; r < ROUNDS; r++) {
+    const roundOrder = r % 2 === 0 ? [...PLAYERS] : [...PLAYERS].reverse();
+    for (const p of roundOrder) order.push({ round: r, player: p });
+  }
+  return order;
+}
+const DRAFT_ORDER = getSnakeDraftOrder();
+
+// State
+let draftPicks = JSON.parse(localStorage.getItem('mastersDraft2026') || '[]');
+let golferScores = JSON.parse(localStorage.getItem('mastersScores2026') || '{}');
+let golferStatus = JSON.parse(localStorage.getItem('mastersStatus2026') || '{}');
+
+function saveDraft() { localStorage.setItem('mastersDraft2026', JSON.stringify(draftPicks)); }
+function saveScores() {
+  localStorage.setItem('mastersScores2026', JSON.stringify(golferScores));
+  localStorage.setItem('mastersStatus2026', JSON.stringify(golferStatus));
+}
+
+// ===== HELPERS =====
+function parseScore(val) {
+  if (val === undefined || val === null || val === '') return null;
+  const s = String(val).trim().toUpperCase();
+  if (s === 'E' || s === '0') return 0;
+  return parseInt(s, 10);
+}
+function formatScore(num) {
+  if (num === null || num === undefined) return '--';
+  if (num === 0) return 'E';
+  return num > 0 ? '+' + num : '' + num;
+}
+function scoreClass(num) {
+  if (num === null || num === undefined) return '';
+  if (num < 0) return 'score-under';
+  if (num > 0) return 'score-over';
+  return 'score-even';
+}
+function scoreBgClass(num) {
+  if (num === null || num === undefined) return '';
+  if (num < 0) return 'bg-under';
+  if (num > 0) return 'bg-over';
+  return 'bg-even';
+}
+
+// Missed cut penalty = highest (worst) score in the field + 5
+function getMissedCutPenalty() {
+  let highestScore = 0;
+  GOLFERS.forEach(g => {
+    const st = golferStatus[g] || 'active';
+    if (st !== 'cut') {
+      const score = parseScore(golferScores[g]);
+      if (score !== null && score > highestScore) highestScore = score;
+    }
+  });
+  return highestScore + 5;
+}
+
+// Get tournament position for a golfer
+function getTournamentPositions() {
+  const active = GOLFERS
+    .filter(g => (golferStatus[g] || 'active') !== 'cut' && parseScore(golferScores[g]) !== null)
+    .map(g => ({ name: g, score: parseScore(golferScores[g]) }))
+    .sort((a, b) => a.score - b.score);
+  const posMap = {};
+  let pos = 1;
+  active.forEach((g, i) => {
+    if (i > 0 && g.score !== active[i - 1].score) pos = i + 1;
+    posMap[g.name] = pos;
+  });
+  return posMap;
+}
+
+// ===== DRAFT =====
+function getPickedGolfers() { return draftPicks.map(p => p.golfer); }
+function getAvailableGolfers() { const picked = getPickedGolfers(); return GOLFERS.filter(g => !picked.includes(g)); }
+
+function renderDraft() {
+  const grid = document.getElementById('draftGrid');
+  const status = document.getElementById('draftStatus');
+  const currentPickIndex = draftPicks.length;
+  const isDraftComplete = currentPickIndex >= DRAFT_ORDER.length;
+
+  if (isDraftComplete) {
+    status.innerHTML = '<span style="color:var(--masters-gold);">Draft Complete!</span> Head to the Teams tab to see your rosters.';
+  } else {
+    const current = DRAFT_ORDER[currentPickIndex];
+    status.innerHTML = 'Round <span class="round">' + (current.round + 1) + '</span> — <span class="drafter">' + current.player + '</span>\'s pick (Pick #' + (currentPickIndex + 1) + ' of ' + DRAFT_ORDER.length + ')';
+  }
+
+  var html = '<div class="draft-header"></div>';
+  PLAYERS.forEach(function(p) { html += '<div class="draft-header">' + p + '</div>'; });
+
+  for (var r = 0; r < ROUNDS; r++) {
+    var arrow = r % 2 === 1 ? '&larr;' : '&rarr;';
+    html += '<div class="draft-round-label">Rd ' + (r + 1) + '<br><span class="snake-arrow">' + arrow + '</span></div>';
+    PLAYERS.forEach(function(p) {
+      var pickIdx = DRAFT_ORDER.findIndex(function(d) { return d.round === r && d.player === p; });
+      var pick = draftPicks[pickIdx];
+      var isActive = pickIdx === currentPickIndex;
+      var isFuture = pickIdx > currentPickIndex;
+      var num = pickIdx + 1;
+      var cls = 'draft-cell';
+      if (isActive) cls += ' active-pick';
+      else if (isFuture) cls += ' future-pick';
+
+      if (pick) {
+        html += '<div class="' + cls + '"><div><span class="pick-number">#' + num + '</span><span class="picked">' + pick.golfer + '</span></div></div>';
+      } else if (isActive) {
+        var avail = getAvailableGolfers();
+        html += '<div class="' + cls + '"><div style="width:100%"><span class="pick-number">#' + num + '</span><select onchange="makePick(this.value)"><option value="">-- Select --</option>';
+        avail.forEach(function(g) { html += '<option value="' + g + '">' + g + '</option>'; });
+        html += '</select></div></div>';
+      } else {
+        html += '<div class="' + cls + '"><span class="pick-number" style="opacity:0.3">#' + num + '</span></div>';
+      }
+    });
+  }
+  grid.innerHTML = html;
+  document.getElementById('undoBtn').disabled = draftPicks.length === 0;
+}
+
+function makePick(golfer) {
+  if (!golfer) return;
+  var idx = draftPicks.length;
+  var info = DRAFT_ORDER[idx];
+  draftPicks.push({ round: info.round, player: info.player, golfer: golfer, pickNumber: idx + 1 });
+  saveDraft();
+  renderDraft();
+  showToast(info.player + ' selects ' + golfer + '!');
+}
+function undoPick() {
+  if (!draftPicks.length) return;
+  var removed = draftPicks.pop();
+  saveDraft(); renderDraft();
+  showToast('Undid ' + removed.player + '\'s pick of ' + removed.golfer);
+}
+function resetDraft() {
+  if (!confirm('Reset the entire draft? This cannot be undone.')) return;
+  draftPicks = []; saveDraft(); renderDraft();
+  showToast('Draft has been reset');
+}
+
+// ===== TEAMS PAGE =====
+function getTeamData() {
+  var cutPenalty = getMissedCutPenalty();
+  var posMap = getTournamentPositions();
+  var teams = {};
+  PLAYERS.forEach(function(p) { teams[p] = { player: p, golfers: [], totalScore: 0, hasAnyScore: false }; });
+
+  draftPicks.forEach(function(pick) {
+    var st = golferStatus[pick.golfer] || 'active';
+    var isCut = st === 'cut';
+    var score = isCut ? cutPenalty : parseScore(golferScores[pick.golfer]);
+    var pos = isCut ? 'MC' : (posMap[pick.golfer] ? 'T' + posMap[pick.golfer] : '--');
+
+    teams[pick.player].golfers.push({
+      name: pick.golfer, score: score, isCut: isCut, position: pos,
+      displayScore: score
+    });
+    if (score !== null) {
+      teams[pick.player].totalScore += score;
+      teams[pick.player].hasAnyScore = true;
+    }
+  });
+
+  return Object.values(teams).sort(function(a, b) {
+    if (!a.hasAnyScore && !b.hasAnyScore) return 0;
+    if (!a.hasAnyScore) return 1;
+    if (!b.hasAnyScore) return -1;
+    return a.totalScore - b.totalScore;
+  });
+}
+
+function renderTeams() {
+  var container = document.getElementById('teamsContainer');
+  if (draftPicks.length === 0) {
+    container.innerHTML = '<div class="no-draft-msg">Complete the draft first to see teams!</div>';
+    return;
+  }
+
+  var teams = getTeamData();
+  var cutPenalty = getMissedCutPenalty();
+  document.getElementById('mcPenaltyDisplay').textContent = formatScore(cutPenalty);
+
+  var html = '<div class="teams-grid">';
+  teams.forEach(function(team, idx) {
+    var isLeader = idx === 0 && team.hasAnyScore;
+    var totalDisplay = team.hasAnyScore ? formatScore(team.totalScore) : '--';
+    var sc = team.hasAnyScore ? scoreClass(team.totalScore) : '';
+    var bg = team.hasAnyScore ? scoreBgClass(team.totalScore) : '';
+
+    html += '<div class="team-panel ' + (isLeader ? 'leader' : '') + '">' +
+      '<div class="team-panel-header">' +
+        '<span class="tp-rank">' + (idx + 1) + '</span>' +
+        '<span class="tp-name">' + team.player + '</span>' +
+        '<span class="tp-total ' + sc + ' ' + bg + '" style="padding:6px 16px; border-radius:8px;">' + totalDisplay + '</span>' +
+      '</div>' +
+      '<div class="tp-roster">';
+
+    var sortedGolfers = team.golfers.slice().sort(function(a, b) {
+      if (a.score === null) return 1;
+      if (b.score === null) return -1;
+      return a.score - b.score;
+    });
+
+    sortedGolfers.forEach(function(g, gi) {
+      var gsc = g.score !== null ? scoreClass(g.score) : '';
+      var cutBadge = g.isCut ? '<span class="mc-badge">MC</span>' : '';
+      var posStr = g.position || '--';
+      html += '<div class="tp-golfer-row ' + (g.isCut ? 'cut-golfer' : '') + '">' +
+        '<span class="tp-golfer-num">' + (gi + 1) + '</span>' +
+        '<span class="tp-golfer-name">' + g.name + cutBadge + '</span>' +
+        '<span class="tp-golfer-score ' + gsc + '">' + (g.score !== null ? formatScore(g.score) : '--') + '</span>' +
+        '<span class="tp-golfer-pos">' + posStr + '</span>' +
+      '</div>';
+    });
+
+    html += '</div>' +
+      '<div class="tp-footer">' +
+        '<span class="tp-footer-label">Team Total</span>' +
+        '<span class="tp-footer-score ' + sc + '">' + totalDisplay + '</span>' +
+      '</div>' +
+    '</div>';
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+// ===== STANDINGS =====
+function renderStandings() {
+  var container = document.getElementById('standingsContainer');
+  if (draftPicks.length === 0) {
+    container.innerHTML = '<div class="no-draft-msg">Complete the draft first to see standings!</div>';
+    document.getElementById('tournamentLeaderboard').innerHTML = '';
+    return;
+  }
+
+  var teams = getTeamData();
+  var cutPenalty = getMissedCutPenalty();
+
+  var html = '<table class="standings-table"><thead><tr>' +
+    '<th>Pos</th><th>Player</th><th>Roster</th><th>Best Pick</th><th>Worst Pick</th><th style="text-align:right">Total</th>' +
+  '</tr></thead><tbody>';
+
+  teams.forEach(function(team, idx) {
+    var totalDisplay = team.hasAnyScore ? formatScore(team.totalScore) : '--';
+    var sc = team.hasAnyScore ? scoreClass(team.totalScore) : '';
+    var golferNames = team.golfers.map(function(g) { return g.isCut ? '<s>' + g.name + '</s>' : g.name; }).join(', ');
+
+    var scored = team.golfers.filter(function(g) { return g.score !== null; });
+    var bestPick = '--', worstPick = '--';
+    if (scored.length) {
+      var best = scored.reduce(function(a, b) { return a.score < b.score ? a : b; });
+      var worst = scored.reduce(function(a, b) { return a.score > b.score ? a : b; });
+      bestPick = best.name + ' (' + formatScore(best.score) + ')';
+      worstPick = worst.name + ' (' + formatScore(worst.score) + ')';
+    }
+
+    html += '<tr>' +
+      '<td class="st-rank">' + (idx + 1) + '</td>' +
+      '<td class="st-name">' + team.player + '</td>' +
+      '<td class="st-golfers">' + golferNames + '</td>' +
+      '<td class="st-best">' + bestPick + '</td>' +
+      '<td class="st-worst">' + worstPick + '</td>' +
+      '<td class="st-score ' + sc + '">' + totalDisplay + '</td>' +
+    '</tr>';
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+
+  // Full tournament leaderboard
+  var pickedMap = {};
+  draftPicks.forEach(function(p) { pickedMap[p.golfer] = p.player; });
+  var allScores = GOLFERS.map(function(g) {
+    var st = golferStatus[g] || 'active';
+    var score = st === 'cut' ? cutPenalty : parseScore(golferScores[g]);
+    return { name: g, score: score, isCut: st === 'cut', draftedBy: pickedMap[g] || null };
+  }).sort(function(a, b) {
+    if (a.score === null && b.score === null) return 0;
+    if (a.score === null) return 1;
+    if (b.score === null) return -1;
+    return a.score - b.score;
+  });
+
+  var tbl = '<table class="tournament-lb"><thead><tr><th>Pos</th><th>Player</th><th>Score</th><th>Drafted By</th></tr></thead><tbody>';
+  var pos = 1;
+  allScores.forEach(function(g, i) {
+    if (i > 0 && g.score !== allScores[i - 1].score) pos = i + 1;
+    var rowCls = g.isCut ? 'cut-row' : '';
+    var nameCls = g.draftedBy ? 'drafted' : '';
+    var scoreStr = g.score !== null ? formatScore(g.score) : '--';
+    var posStr = g.score !== null ? (g.isCut ? 'MC' : pos) : '--';
+    var sc = g.score !== null ? scoreClass(g.score) : '';
+    tbl += '<tr class="' + rowCls + '"><td>' + posStr + '</td><td class="' + nameCls + '">' + g.name + '</td><td class="' + sc + '">' + scoreStr + (g.isCut ? ' (MC)' : '') + '</td><td>' + (g.draftedBy || '') + '</td></tr>';
+  });
+  tbl += '</tbody></table>';
+  document.getElementById('tournamentLeaderboard').innerHTML = tbl;
+}
+
+// ===== LIVE SCORES (ESPN) =====
+async function fetchLiveScores() {
+  var statusEl = document.getElementById('apiStatus');
+  try {
+    if (statusEl) { statusEl.className = 'api-status manual'; statusEl.textContent = 'Fetching scores from ESPN...'; }
+    var resp = await fetch('https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard');
+    if (!resp.ok) throw new Error('ESPN API returned ' + resp.status);
+    var data = await resp.json();
+
+    var mastersEvent = null;
+    if (data.events) {
+      mastersEvent = data.events.find(function(e) { return e.name && (e.name.toLowerCase().includes('masters') || e.name.toLowerCase().includes('augusta')); });
+      if (!mastersEvent && data.events.length === 1) mastersEvent = data.events[0];
+    }
+    if (!mastersEvent || !mastersEvent.competitions || !mastersEvent.competitions[0]) {
+      if (statusEl) { statusEl.className = 'api-status disconnected'; statusEl.textContent = 'Masters not found on ESPN. Tournament may not have started yet (April 9-12). Enter scores manually.'; }
+      return;
+    }
+
+    var competitors = mastersEvent.competitions[0].competitors || [];
+    var matched = 0;
+    competitors.forEach(function(c) {
+      var name = c.athlete ? c.athlete.displayName : '';
+      if (!name) return;
+      var match = GOLFERS.find(function(g) {
+        return g.toLowerCase() === name.toLowerCase() ||
+          g.toLowerCase().includes(name.toLowerCase()) ||
+          name.toLowerCase().includes(g.split(' ').pop().toLowerCase());
+      });
+      if (match) {
+        var scoreToPar = c.score !== undefined ? parseInt(c.score) : null;
+        if (scoreToPar !== null && !isNaN(scoreToPar)) golferScores[match] = scoreToPar;
+        var status_c = c.status && c.status.type ? c.status.type.name : '';
+        if (status_c === 'cut') golferStatus[match] = 'cut';
+        matched++;
+      }
+    });
+
+    saveScores(); renderScoreInputs(); renderTeams(); renderStandings();
+    var now = new Date().toLocaleTimeString();
+    if (statusEl) { statusEl.className = 'api-status connected'; statusEl.innerHTML = '<span class="live-dot"></span> Connected to ESPN — ' + matched + ' golfers matched. Last updated: ' + now; }
+    document.getElementById('liveDot').style.display = 'inline-block';
+    document.getElementById('refreshInfo').textContent = 'Last updated: ' + now;
+    showToast('Scores updated — ' + matched + ' golfers matched');
+  } catch (err) {
+    if (statusEl) { statusEl.className = 'api-status disconnected'; statusEl.textContent = 'Could not fetch live scores: ' + err.message + '. Enter scores manually.'; }
+  }
+}
+
+// ===== SCORE INPUTS =====
+function renderScoreInputs() {
+  var container = document.getElementById('scoreInputs');
+  var html = '';
+  GOLFERS.forEach(function(g) {
+    var score = golferScores[g] !== undefined ? golferScores[g] : '';
+    var st = golferStatus[g] || 'active';
+    var esc = g.replace(/'/g, "\\'");
+    html += '<div class="score-input-row">' +
+      '<label title="' + g + '">' + g + '</label>' +
+      '<input type="text" value="' + score + '" placeholder="E" onchange="updateScore(\'' + esc + '\', this.value)" style="width:50px;">' +
+      '<select onchange="updateStatus(\'' + esc + '\', this.value)">' +
+        '<option value="active"' + (st === 'active' ? ' selected' : '') + '>Active</option>' +
+        '<option value="cut"' + (st === 'cut' ? ' selected' : '') + '>Cut</option>' +
+      '</select>' +
+    '</div>';
+  });
+  container.innerHTML = html;
+}
+
+function updateScore(golfer, value) {
+  var v = value.trim().toUpperCase();
+  if (v === '' || v === '--') delete golferScores[golfer];
+  else if (v === 'E') golferScores[golfer] = 0;
+  else { var n = parseInt(v, 10); if (!isNaN(n)) golferScores[golfer] = n; }
+  saveScores(); renderTeams(); renderStandings();
+}
+function updateStatus(golfer, value) {
+  golferStatus[golfer] = value;
+  saveScores(); renderTeams(); renderStandings();
+}
+function clearAllScores() {
+  if (!confirm('Clear all scores?')) return;
+  golferScores = {}; golferStatus = {};
+  saveScores(); renderScoreInputs(); renderTeams(); renderStandings();
+  showToast('All scores cleared');
+}
+
+// ===== TABS =====
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+  document.querySelectorAll('.tab-content').forEach(function(t) { t.classList.remove('active'); });
+  document.getElementById('tab-' + tab).classList.add('active');
+  btn.classList.add('active');
+  if (tab === 'teams') renderTeams();
+  if (tab === 'leaderboard') renderStandings();
+  if (tab === 'scores') renderScoreInputs();
+}
+
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 2500);
+}
+
+// INIT
+renderDraft();
+renderScoreInputs();
+</script>
+</body>
+</html>
