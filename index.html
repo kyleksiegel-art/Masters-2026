@@ -223,7 +223,15 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script>
+// Firebase config
+const firebaseConfig = {
+  databaseURL: "https://kks-masters-2026-default-rtdb.firebaseio.com"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 const PLAYERS = ['Jordan', 'Kyle', 'Adam', 'Josh', 'Jon'];
 const ROUNDS = 5;
 const GOLFERS = [
@@ -243,7 +251,9 @@ const GOLFERS = [
   "Justin Rose","Xander Schauffele","Scottie Scheffler","Charl Schwartzel","Adam Scott",
   "Vijay Singh","Cameron Smith","J.J. Spaun","Jordan Spieth","Samuel Stevens",
   "Sepp Straka","Nick Taylor","Justin Thomas","Sami Valimaki","Bubba Watson",
-  "Mike Weir","Danny Willett","Gary Woodland","Cameron Young"
+  "Mike Weir","Danny Willett","Gary Woodland","Cameron Young",
+  "Naoyuki Kataoka","John Keefer","Ethan Fang","Jackson Herrington",
+  "Brandon Holtz","Mason Howell","Fifa Laopakdee","Mateo Pulcini","Tiger Woods"
 ].sort();
 
 function getSnakeDraftOrder() {
@@ -257,15 +267,38 @@ function getSnakeDraftOrder() {
 const DRAFT_ORDER = getSnakeDraftOrder();
 
 // State
-let draftPicks = JSON.parse(localStorage.getItem('mastersDraft2026') || '[]');
-let golferScores = JSON.parse(localStorage.getItem('mastersScores2026') || '{}');
-let golferStatus = JSON.parse(localStorage.getItem('mastersStatus2026') || '{}');
+let draftPicks = [];
+let golferScores = {};
+let golferStatus = {};
+let firebaseReady = false;
 
-function saveDraft() { localStorage.setItem('mastersDraft2026', JSON.stringify(draftPicks)); }
-function saveScores() {
-  localStorage.setItem('mastersScores2026', JSON.stringify(golferScores));
-  localStorage.setItem('mastersStatus2026', JSON.stringify(golferStatus));
+function saveDraft() {
+  db.ref('draftPicks').set(draftPicks);
 }
+function saveScores() {
+  db.ref('golferScores').set(golferScores);
+  db.ref('golferStatus').set(golferStatus);
+}
+
+// Listen for real-time changes from Firebase
+db.ref('draftPicks').on('value', function(snap) {
+  draftPicks = snap.val() || [];
+  renderDraft();
+  if (document.getElementById('tab-teams').classList.contains('active')) renderTeams();
+  if (document.getElementById('tab-leaderboard').classList.contains('active')) renderStandings();
+});
+db.ref('golferScores').on('value', function(snap) {
+  golferScores = snap.val() || {};
+  if (document.getElementById('tab-scores').classList.contains('active')) renderScoreInputs();
+  if (document.getElementById('tab-teams').classList.contains('active')) renderTeams();
+  if (document.getElementById('tab-leaderboard').classList.contains('active')) renderStandings();
+});
+db.ref('golferStatus').on('value', function(snap) {
+  golferStatus = snap.val() || {};
+  if (document.getElementById('tab-scores').classList.contains('active')) renderScoreInputs();
+  if (document.getElementById('tab-teams').classList.contains('active')) renderTeams();
+  if (document.getElementById('tab-leaderboard').classList.contains('active')) renderStandings();
+});
 
 // ===== HELPERS =====
 function parseScore(val) {
@@ -652,9 +685,7 @@ function showToast(msg) {
   setTimeout(function() { t.classList.remove('show'); }, 2500);
 }
 
-// INIT
-renderDraft();
-renderScoreInputs();
+// INIT — Firebase listeners above handle rendering automatically
 </script>
 </body>
 </html>
