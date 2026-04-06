@@ -267,7 +267,7 @@ const GOLFERS = [
   "Andrew Novak","José María Olazábal","Carlos Ortiz","Marco Penge","Aldrich Potgieter",
   "Jon Rahm","Aaron Rai","Patrick Reed","Kristoffer Reitan","Davis Riley",
   "Justin Rose","Xander Schauffele","Scottie Scheffler","Charl Schwartzel","Adam Scott",
-  "Vijay Singh","Cameron Smith","J.J. Spaun","Jordan Spieth","Samuel Stevens",
+  "Vijay Singh","Cameron Smith","JJ Spaun","Jordan Spieth","Samuel Stevens",
   "Sepp Straka","Nick Taylor","Justin Thomas","Sami Valimaki","Bubba Watson",
   "Mike Weir","Danny Willett","Gary Woodland","Cameron Young",
   "Naoyuki Kataoka","John Keefer","Ethan Fang","Jackson Herrington",
@@ -293,9 +293,14 @@ let worstRounds = { r3: null, r4: null };  // worst score to par for R3 and R4
 function saveDraft() {
   db.ref('draftPicks').set(draftPicks);
 }
+function sanitizeKeys(obj) {
+  var clean = {};
+  Object.keys(obj).forEach(function(k) { clean[k.replace(/\./g, '')] = obj[k]; });
+  return clean;
+}
 function saveScores() {
-  db.ref('golferScores').set(golferScores);
-  db.ref('golferStatus').set(golferStatus);
+  db.ref('golferScores').set(sanitizeKeys(golferScores));
+  db.ref('golferStatus').set(sanitizeKeys(golferStatus));
 }
 function saveWorstRounds() {
   db.ref('worstRounds').set(worstRounds);
@@ -315,11 +320,11 @@ db.ref('draftPicks').on('value', function(snap) {
   refreshAllViews();
 });
 db.ref('golferScores').on('value', function(snap) {
-  golferScores = snap.val() || {};
+  golferScores = sanitizeKeys(snap.val() || {});
   refreshAllViews();
 });
 db.ref('golferStatus').on('value', function(snap) {
-  golferStatus = snap.val() || {};
+  golferStatus = sanitizeKeys(snap.val() || {});
   refreshAllViews();
 });
 db.ref('worstRounds').on('value', function(snap) {
@@ -688,10 +693,12 @@ async function fetchLiveScores() {
     competitors.forEach(function(c) {
       var name = c.athlete ? c.athlete.displayName : '';
       if (!name) return;
+      var cleanName = name.replace(/\./g, '');
       var match = GOLFERS.find(function(g) {
-        return g.toLowerCase() === name.toLowerCase() ||
-          g.toLowerCase().includes(name.toLowerCase()) ||
-          name.toLowerCase().includes(g.split(' ').pop().toLowerCase());
+        return g.toLowerCase() === cleanName.toLowerCase() ||
+          g.toLowerCase() === name.toLowerCase() ||
+          g.toLowerCase().includes(cleanName.toLowerCase()) ||
+          cleanName.toLowerCase().includes(g.split(' ').pop().toLowerCase());
       });
       if (match) {
         var status_c = c.status && c.status.type ? c.status.type.name : '';
@@ -818,6 +825,13 @@ function showToast(msg) {
 }
 
 // INIT — Firebase listeners above handle rendering automatically
+// Clean up any bad Firebase keys with dots (one-time fix)
+db.ref('golferScores/J.J. Spaun').remove();
+db.ref('golferStatus/J.J. Spaun').remove();
+
+// Auto-fetch scores on load and every 60 seconds
+fetchLiveScores();
+setInterval(fetchLiveScores, 60000);
 </script>
 </body>
 </html>
