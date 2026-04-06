@@ -182,7 +182,7 @@
     <button class="btn btn-primary" onclick="fetchLiveScores()">Refresh Scores</button>
   </div>
   <div class="mc-rule-banner" id="mcBanner">
-    <span class="rule-text">Missed Cut: R2 score + (worst of R3 + 5) + (worst of R4 + 5)</span>
+    <span class="rule-text">MC: R2 score + (worst R3 + 5) + (worst R4 + 5) | WD: Alternate subs in</span>
     <span class="rule-value" id="mcPenaltyDisplay"></span>
   </div>
   <div id="teamsContainer"></div>
@@ -251,7 +251,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const PLAYERS = ['Jordan', 'Kyle', 'Adam', 'Josh', 'Jon'];
-const ROUNDS = 5;
+const ROUNDS = 6; // Rounds 1-5 = starters, Round 6 = alternate
 const GOLFERS = [
   "Ludvig Åberg","Daniel Berger","Akshay Bhatia","Keegan Bradley","Michael Brennan",
   "Jacob Bridgeman","Sam Burns","Ángel Cabrera","Brian Campbell","Patrick Cantlay",
@@ -435,7 +435,8 @@ function renderDraft() {
 
   for (var r = 0; r < ROUNDS; r++) {
     var arrow = r % 2 === 1 ? '&larr;' : '&rarr;';
-    html += '<div class="draft-round-label">Rd ' + (r + 1) + '<br><span class="snake-arrow">' + arrow + '</span></div>';
+    var roundLabel = r === 5 ? 'ALT' : 'Rd ' + (r + 1);
+    html += '<div class="draft-round-label">' + roundLabel + '<br><span class="snake-arrow">' + arrow + '</span></div>';
     PLAYERS.forEach(function(p) {
       var pickIdx = DRAFT_ORDER.findIndex(function(d) { return d.round === r && d.player === p; });
       var pick = draftPicks[pickIdx];
@@ -487,34 +488,84 @@ function resetDraft() {
 function getTeamData() {
   var posMap = getTournamentPositions();
   var teams = {};
-  PLAYERS.forEach(function(p) { teams[p] = { player: p, golfers: [], totalScore: 0, hasAnyScore: false }; });
+  PLAYERS.forEach(function(p) { teams[p] = { player: p, golfers: [], alternate: null, totalScore: 0, hasAnyScore: false }; });
+
+  // First pass: separate starters (rounds 0-4) and alternates (round 5)
+  var starters = {}; // player -> array of picks
+  var alternates = {}; // player -> pick
+  PLAYERS.forEach(function(p) { starters[p] = []; alternates[p] = null; });
 
   draftPicks.forEach(function(pick) {
-    var st = golferStatus[pick.golfer] || 'active';
-    var isCut = st === 'cut';
-    var score;
-    var r2Score = null;
-    var penR3 = null;
-    var penR4 = null;
-
-    if (isCut) {
-      r2Score = parseScore(golferScores[pick.golfer]);
-      penR3 = worstRounds.r3 !== null ? (worstRounds.r3 + 5) : null;
-      penR4 = worstRounds.r4 !== null ? (worstRounds.r4 + 5) : null;
-      score = getCutGolferTotal(pick.golfer);
+    if (pick.round === 5) {
+      alternates[pick.player] = pick;
     } else {
-      score = parseScore(golferScores[pick.golfer]);
+      starters[pick.player].push(pick);
     }
+  });
 
-    var pos = isCut ? 'MC' : (posMap[pick.golfer] ? 'T' + posMap[pick.golfer] : '--');
-
-    teams[pick.player].golfers.push({
-      name: pick.golfer, score: score, isCut: isCut, position: pos,
-      r2Score: r2Score, penR3: penR3, penR4: penR4
+  // Second pass: build rosters, subbing in alternate for any WD starter
+  PLAYERS.forEach(function(p) {
+    var hasWD = false;
+    starters[p].forEach(function(pick) {
+      var st = golferStatus[pick.golfer] || 'active';
+      if (st === 'wd') {
+        hasWD = true;
+        // WD golfer shown but not scored
+        teams[p].golfers.push({
+          name: pick.golfer, score: null, isCut: false, isWD: true, position: 'WD',
+          r2Score: null, penR3: null, penR4: null
+        });
+      } else {
+        var isCut = st === 'cut';
+        var score, r2Score = null, penR3 = null, penR4 = null;
+        if (isCut) {
+          r2Score = parseScore(golferScores[pick.golfer]);
+          penR3 = worstRounds.r3 !== null ? (worstRounds.r3 + 5) : null;
+          penR4 = worstRounds.r4 !== null ? (worstRounds.r4 + 5) : null;
+          score = getCutGolferTotal(pick.golfer);
+        } else {
+          score = parseScore(golferScores[pick.golfer]);
+        }
+        var pos = isCut ? 'MC' : (posMap[pick.golfer] ? 'T' + posMap[pick.golfer] : '--');
+        teams[p].golfers.push({
+          name: pick.golfer, score: score, isCut: isCut, isWD: false, position: pos,
+          r2Score: r2Score, penR3: penR3, penR4: penR4
+        });
+        if (score !== null) {
+          teams[p].totalScore += score;
+          teams[p].hasAnyScore = true;
+        }
+      }
     });
-    if (score !== null) {
-      teams[pick.player].totalScore += score;
-      teams[pick.player].hasAnyScore = true;
+
+    // Sub in alternate if there's a WD
+    var alt = alternates[p];
+    if (alt) {
+      var altSt = golferStatus[alt.golfer] || 'active';
+      var altIsCut = altSt === 'cut';
+      var altScore, altR2 = null, altPenR3 = null, altPenR4 = null;
+      if (altIsCut) {
+        altR2 = parseScore(golferScores[alt.golfer]);
+        altPenR3 = worstRounds.r3 !== null ? (worstRounds.r3 + 5) : null;
+        altPenR4 = worstRounds.r4 !== null ? (worstRounds.r4 + 5) : null;
+        altScore = getCutGolferTotal(alt.golfer);
+      } else {
+        altScore = parseScore(golferScores[alt.golfer]);
+      }
+      var altPos = altIsCut ? 'MC' : (posMap[alt.golfer] ? 'T' + posMap[alt.golfer] : '--');
+
+      if (hasWD) {
+        // Alternate is active on roster
+        teams[p].golfers.push({
+          name: alt.golfer, score: altScore, isCut: altIsCut, isWD: false, isAlt: true, position: altPos,
+          r2Score: altR2, penR3: altPenR3, penR4: altPenR4
+        });
+        if (altScore !== null) {
+          teams[p].totalScore += altScore;
+          teams[p].hasAnyScore = true;
+        }
+      }
+      teams[p].alternate = { name: alt.golfer, active: hasWD };
     }
   });
 
@@ -566,9 +617,12 @@ function renderTeams() {
 
     sortedGolfers.forEach(function(g, gi) {
       var gsc = g.score !== null ? scoreClass(g.score) : '';
-      var cutBadge = g.isCut ? '<span class="mc-badge">MC</span>' : '';
+      var badge = '';
+      if (g.isWD) badge = '<span class="mc-badge" style="background:var(--text-dim);">WD</span>';
+      else if (g.isAlt) badge = '<span class="mc-badge" style="background:var(--masters-gold); color:#000;">ALT</span>';
+      else if (g.isCut) badge = '<span class="mc-badge">MC</span>';
       var posStr = g.position || '--';
-      var scoreDisplay = g.score !== null ? formatScore(g.score) : '--';
+      var scoreDisplay = g.isWD ? 'WD' : (g.score !== null ? formatScore(g.score) : '--');
       var breakdown = '';
       if (g.isCut && g.r2Score !== null) {
         var parts = [formatScore(g.r2Score)];
@@ -576,13 +630,26 @@ function renderTeams() {
         if (g.penR4 !== null) parts.push(formatScore(g.penR4));
         breakdown = '<span style="font-size:0.75em; color:var(--text-dim); display:block;">(' + parts.join(' + ') + ')</span>';
       }
-      html += '<div class="tp-golfer-row ' + (g.isCut ? 'cut-golfer' : '') + '">' +
+      var rowCls = 'tp-golfer-row';
+      if (g.isCut) rowCls += ' cut-golfer';
+      if (g.isWD) rowCls += ' cut-golfer';
+      html += '<div class="' + rowCls + '">' +
         '<span class="tp-golfer-num">' + (gi + 1) + '</span>' +
-        '<span class="tp-golfer-name">' + g.name + cutBadge + '</span>' +
+        '<span class="tp-golfer-name">' + g.name + badge + '</span>' +
         '<span class="tp-golfer-score ' + gsc + '">' + scoreDisplay + breakdown + '</span>' +
         '<span class="tp-golfer-pos">' + posStr + '</span>' +
       '</div>';
     });
+
+    // Show alternate on bench if no WD
+    if (team.alternate && !team.alternate.active) {
+      html += '<div class="tp-golfer-row" style="opacity:0.5; border-top:1px dashed var(--text-dim); margin-top:4px; padding-top:4px;">' +
+        '<span class="tp-golfer-num">ALT</span>' +
+        '<span class="tp-golfer-name">' + team.alternate.name + ' <span style="font-size:0.75em; color:var(--text-dim);">(on bench)</span></span>' +
+        '<span class="tp-golfer-score">--</span>' +
+        '<span class="tp-golfer-pos">--</span>' +
+      '</div>';
+    }
 
     html += '</div>' +
       '<div class="tp-footer">' +
@@ -613,7 +680,12 @@ function renderStandings() {
   teams.forEach(function(team, idx) {
     var totalDisplay = team.hasAnyScore ? formatScore(team.totalScore) : '--';
     var sc = team.hasAnyScore ? scoreClass(team.totalScore) : '';
-    var golferNames = team.golfers.map(function(g) { return g.isCut ? '<s>' + g.name + '</s>' : g.name; }).join(', ');
+    var golferNames = team.golfers.map(function(g) {
+      if (g.isWD) return '<s style="opacity:0.5">' + g.name + '</s>';
+      if (g.isCut) return '<s>' + g.name + '</s>';
+      if (g.isAlt) return g.name + ' (ALT)';
+      return g.name;
+    }).join(', ');
 
     var scored = team.golfers.filter(function(g) { return g.score !== null; });
     var bestPick = '--', worstPick = '--';
@@ -641,8 +713,9 @@ function renderStandings() {
   draftPicks.forEach(function(p) { pickedMap[p.golfer] = p.player; });
   var allScores = GOLFERS.map(function(g) {
     var st = golferStatus[g] || 'active';
-    var score = st === 'cut' ? getCutGolferTotal(g) : parseScore(golferScores[g]);
-    return { name: g, score: score, isCut: st === 'cut', draftedBy: pickedMap[g] || null };
+    var isWD = st === 'wd';
+    var score = isWD ? null : (st === 'cut' ? getCutGolferTotal(g) : parseScore(golferScores[g]));
+    return { name: g, score: score, isCut: st === 'cut', isWD: isWD, draftedBy: pickedMap[g] || null };
   }).sort(function(a, b) {
     if (a.score === null && b.score === null) return 0;
     if (a.score === null) return 1;
@@ -654,12 +727,13 @@ function renderStandings() {
   var pos = 1;
   allScores.forEach(function(g, i) {
     if (i > 0 && g.score !== allScores[i - 1].score) pos = i + 1;
-    var rowCls = g.isCut ? 'cut-row' : '';
+    var rowCls = g.isCut ? 'cut-row' : (g.isWD ? 'cut-row' : '');
     var nameCls = g.draftedBy ? 'drafted' : '';
-    var scoreStr = g.score !== null ? formatScore(g.score) : '--';
-    var posStr = g.score !== null ? (g.isCut ? 'MC' : pos) : '--';
+    var scoreStr = g.isWD ? 'WD' : (g.score !== null ? formatScore(g.score) : '--');
+    var posStr = g.isWD ? 'WD' : (g.score !== null ? (g.isCut ? 'MC' : pos) : '--');
     var sc = g.score !== null ? scoreClass(g.score) : '';
-    tbl += '<tr class="' + rowCls + '"><td>' + posStr + '</td><td class="' + nameCls + '">' + g.name + '</td><td class="' + sc + '">' + scoreStr + (g.isCut ? ' (MC)' : '') + '</td><td>' + (g.draftedBy || '') + '</td></tr>';
+    var suffix = g.isCut ? ' (MC)' : (g.isWD ? '' : '');
+    tbl += '<tr class="' + rowCls + '"><td>' + posStr + '</td><td class="' + nameCls + '">' + g.name + '</td><td class="' + sc + '">' + scoreStr + suffix + '</td><td>' + (g.draftedBy || '') + '</td></tr>';
   });
   tbl += '</tbody></table>';
   document.getElementById('tournamentLeaderboard').innerHTML = tbl;
@@ -703,8 +777,13 @@ async function fetchLiveScores() {
       if (match) {
         var status_c = c.status && c.status.type ? c.status.type.name : '';
         var isCut = status_c === 'cut';
+        var isWD = status_c === 'withdrawn' || status_c === 'wd';
 
-        if (isCut) {
+        if (isWD) {
+          golferStatus[match] = 'wd';
+          matched++;
+          return; // WD golfers don't count — alternate subs in
+        } else if (isCut) {
           // For cut golfers, store their R2 cumulative score to par
           golferStatus[match] = 'cut';
           // Use the total score at time of cut (R1+R2 to par)
@@ -774,6 +853,7 @@ function renderScoreInputs() {
       '<select onchange="updateStatus(\'' + esc + '\', this.value)">' +
         '<option value="active"' + (st === 'active' ? ' selected' : '') + '>Active</option>' +
         '<option value="cut"' + (st === 'cut' ? ' selected' : '') + '>Cut</option>' +
+        '<option value="wd"' + (st === 'wd' ? ' selected' : '') + '>WD</option>' +
       '</select>' +
       cutTotal +
     '</div>';
