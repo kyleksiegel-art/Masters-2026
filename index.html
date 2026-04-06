@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>2026 Masters Draft & Leaderboard</title>
+<title>Homasexuals 2026 Masters Pool</title>
 <style>
   :root {
     --masters-green: #006747;
@@ -151,7 +151,7 @@
 <body>
 
 <header>
-  <h1>The Masters 2026</h1>
+  <h1>Homasexuals 2026 Masters Pool</h1>
   <p>Draft & Leaderboard Tracker</p>
 </header>
 
@@ -182,7 +182,7 @@
     <button class="btn btn-primary" onclick="fetchLiveScores()">Refresh Scores</button>
   </div>
   <div class="mc-rule-banner" id="mcBanner">
-    <span class="rule-text">Missed Cut: R2 score + (worst of R3 + 5) + (worst of R4 + 5)</span>
+    <span class="rule-text">Missed Cut: R2 score + (worst of R3 + 3) + (worst of R4 + 3)</span>
     <span class="rule-value" id="mcPenaltyDisplay"></span>
   </div>
   <div id="teamsContainer"></div>
@@ -215,7 +215,7 @@
   <div class="settings-panel" style="border-color:var(--cut-red);">
     <h3 style="color:var(--cut-red);">Missed Cut Penalty Settings</h3>
     <p style="color:var(--text-dim); margin-bottom:12px; font-size:0.85em;">
-      Auto-calculated from ESPN data when you fetch scores. You can also manually override below. Cut golfers get the worst score + 5 for each missed round.
+      Auto-calculated from ESPN data when you fetch scores. You can also manually override below. Cut golfers get the worst score + 3 for each missed round.
     </p>
     <div style="display:flex; gap:20px; flex-wrap:wrap; align-items:center;">
       <div style="display:flex; align-items:center; gap:8px;">
@@ -361,7 +361,7 @@ function scoreBgClass(num) {
   return 'bg-even';
 }
 
-// Missed cut penalty — per-round: cut golfer gets R2 score + (worst R3 + 5) + (worst R4 + 5)
+// Missed cut penalty — per-round: cut golfer gets R2 score + (worst R3 + 3) + (worst R4 + 3)
 function updateWorstRound(round, value) {
   var v = value.trim().toUpperCase();
   var num = null;
@@ -377,24 +377,24 @@ function updatePenaltyPreview() {
   var el = document.getElementById('penaltyPreview');
   if (!el) return;
   if (worstRounds.r3 !== null && worstRounds.r4 !== null) {
-    var penR3 = worstRounds.r3 + 5;
-    var penR4 = worstRounds.r4 + 5;
+    var penR3 = worstRounds.r3 + 3;
+    var penR4 = worstRounds.r4 + 3;
     el.textContent = 'R3 penalty: ' + formatScore(penR3) + ' | R4 penalty: ' + formatScore(penR4) + ' | Combined penalty rounds: ' + formatScore(penR3 + penR4);
   } else if (worstRounds.r3 !== null) {
-    el.textContent = 'R3 penalty: ' + formatScore(worstRounds.r3 + 5) + ' | Enter worst R4 to complete';
+    el.textContent = 'R3 penalty: ' + formatScore(worstRounds.r3 + 3) + ' | Enter worst R4 to complete';
   } else if (worstRounds.r4 !== null) {
-    el.textContent = 'Enter worst R3 to complete | R4 penalty: ' + formatScore(worstRounds.r4 + 5);
+    el.textContent = 'Enter worst R3 to complete | R4 penalty: ' + formatScore(worstRounds.r4 + 3);
   } else {
     el.textContent = 'Enter worst R3 and R4 scores to calculate penalties';
   }
 }
 
 function getCutGolferTotal(golfer) {
-  // Cut golfer total = their R2 score to par + (worst R3 to par + 5) + (worst R4 to par + 5)
+  // Cut golfer total = their R2 score to par + (worst R3 to par + 2) + (worst R4 to par + 2)
   var r2Score = parseScore(golferScores[golfer]);
   if (r2Score === null) return null;
-  var penR3 = worstRounds.r3 !== null ? (worstRounds.r3 + 5) : 0;
-  var penR4 = worstRounds.r4 !== null ? (worstRounds.r4 + 5) : 0;
+  var penR3 = worstRounds.r3 !== null ? (worstRounds.r3 + 3) : 0;
+  var penR4 = worstRounds.r4 !== null ? (worstRounds.r4 + 3) : 0;
   return r2Score + penR3 + penR4;
 }
 
@@ -496,8 +496,8 @@ function getTeamData() {
 
     if (isCut) {
       r2Score = parseScore(golferScores[pick.golfer]);
-      penR3 = worstRounds.r3 !== null ? (worstRounds.r3 + 5) : null;
-      penR4 = worstRounds.r4 !== null ? (worstRounds.r4 + 5) : null;
+      penR3 = worstRounds.r3 !== null ? (worstRounds.r3 + 3) : null;
+      penR4 = worstRounds.r4 !== null ? (worstRounds.r4 + 3) : null;
       score = getCutGolferTotal(pick.golfer);
     } else {
       score = parseScore(golferScores[pick.golfer]);
@@ -531,8 +531,8 @@ function renderTeams() {
   }
 
   var teams = getTeamData();
-  var penR3 = worstRounds.r3 !== null ? (worstRounds.r3 + 5) : null;
-  var penR4 = worstRounds.r4 !== null ? (worstRounds.r4 + 5) : null;
+  var penR3 = worstRounds.r3 !== null ? (worstRounds.r3 + 3) : null;
+  var penR4 = worstRounds.r4 !== null ? (worstRounds.r4 + 3) : null;
   var penaltyStr = '';
   if (penR3 !== null && penR4 !== null) penaltyStr = 'R3: ' + formatScore(penR3) + ', R4: ' + formatScore(penR4);
   else if (penR3 !== null) penaltyStr = 'R3: ' + formatScore(penR3) + ', R4: TBD';
