@@ -154,21 +154,26 @@
   <h1>Homasexuals 2026 Masters Pool</h1>
   <p>Draft & Leaderboard Tracker</p>
   <div style="margin-top:8px; position:relative;">
-    <select id="currentPlayer" onchange="setCurrentPlayer(this.value)" style="background:#1a2b23; color:var(--masters-gold); border:1px solid var(--masters-gold); padding:6px 12px; border-radius:6px; font-family:inherit; font-size:0.9em; cursor:pointer;">
+    <select id="currentPlayer" onchange="setCurrentPlayer(this.value)" style="background:#fff; color:#222; border:2px solid var(--masters-gold); padding:8px 14px; border-radius:6px; font-family:inherit; font-size:1em; cursor:pointer; -webkit-appearance:menulist;">
       <option value="">-- Who are you? --</option>
+      <option value="Jordan">Jordan</option>
+      <option value="Kyle">Kyle</option>
+      <option value="Adam">Adam</option>
+      <option value="Josh">Josh</option>
+      <option value="Jon">Jon</option>
     </select>
   </div>
 </header>
 
 <div class="tabs">
-  <button class="tab-btn active" onclick="switchTab('draft', this)">Draft Board</button>
+  <button class="tab-btn" onclick="switchTab('draft', this)">Draft Board</button>
   <button class="tab-btn" onclick="switchTab('teams', this)">Teams</button>
-  <button class="tab-btn" onclick="switchTab('leaderboard', this)">Standings</button>
+  <button class="tab-btn active" onclick="switchTab('leaderboard', this)">Standings</button>
   <button class="tab-btn" onclick="switchTab('scores', this)">Manage Scores</button>
 </div>
 
 <!-- DRAFT TAB -->
-<div id="tab-draft" class="tab-content active">
+<div id="tab-draft" class="tab-content">
   <div class="draft-status" id="draftStatus">Loading draft...</div>
   <div class="draft-grid" id="draftGrid"></div>
   <div class="draft-controls">
@@ -194,7 +199,7 @@
 </div>
 
 <!-- STANDINGS TAB -->
-<div id="tab-leaderboard" class="tab-content">
+<div id="tab-leaderboard" class="tab-content active">
   <div class="refresh-bar">
     <span class="refresh-info">Team standings ranked by combined score to par</span>
     <button class="btn btn-primary" onclick="fetchLiveScores()">Refresh Scores</button>
@@ -891,13 +896,6 @@ var playerFavorites = {}; // player -> { golferName: true }
 
 function initPlayerSelector() {
   var sel = document.getElementById('currentPlayer');
-  PLAYERS.forEach(function(p) {
-    var opt = document.createElement('option');
-    opt.value = p;
-    opt.textContent = p;
-    sel.appendChild(opt);
-  });
-  // Restore from localStorage
   var saved = localStorage.getItem('mastersCurrentPlayer');
   if (saved && PLAYERS.indexOf(saved) !== -1) {
     sel.value = saved;
