@@ -867,6 +867,15 @@ function switchTab(tab, btn) {
   if (tab === 'teams') renderTeams();
   if (tab === 'leaderboard') renderStandings();
   if (tab === 'scores') renderScoreInputs();
+  localStorage.setItem('mastersActiveTab', tab);
+}
+
+function restoreTab() {
+  var saved = localStorage.getItem('mastersActiveTab');
+  if (saved) {
+    var btn = document.querySelector('.tab-btn[onclick*="' + saved + '"]');
+    if (btn) switchTab(saved, btn);
+  }
 }
 
 function showToast(msg) {
@@ -943,6 +952,7 @@ db.ref('golferScores/J.J. Spaun').remove();
 db.ref('golferStatus/J.J. Spaun').remove();
 
 initPlayerSelector();
+restoreTab();
 
 // Auto-fetch scores on load and every 60 seconds
 fetchLiveScores();
