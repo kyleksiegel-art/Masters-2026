@@ -153,6 +153,11 @@
 <header>
   <h1>Homasexuals 2026 Masters Pool</h1>
   <p>Draft & Leaderboard Tracker</p>
+  <div style="margin-top:8px; position:relative;">
+    <select id="currentPlayer" onchange="setCurrentPlayer(this.value)" style="background:#1a2b23; color:var(--masters-gold); border:1px solid var(--masters-gold); padding:6px 12px; border-radius:6px; font-family:inherit; font-size:0.9em; cursor:pointer;">
+      <option value="">-- Who are you? --</option>
+    </select>
+  </div>
 </header>
 
 <div class="tabs">
@@ -195,7 +200,14 @@
     <button class="btn btn-primary" onclick="fetchLiveScores()">Refresh Scores</button>
   </div>
   <div id="standingsContainer"></div>
+  <div id="favoritesSection" style="display:none;">
+    <h2 class="section-title">My Watchlist</h2>
+    <div id="favoritesLeaderboard"></div>
+  </div>
   <h2 class="section-title">Full Tournament Leaderboard</h2>
+  <div style="margin-bottom:12px;">
+    <input type="text" id="golferSearch" placeholder="Search golfers..." oninput="filterLeaderboard(this.value)" style="width:100%; max-width:350px; padding:8px 12px; background:#1a2b23; color:var(--text); border:1px solid var(--card-border); border-radius:6px; font-family:inherit; font-size:0.9em;">
+  </div>
   <div id="tournamentLeaderboard"></div>
 </div>
 
@@ -647,19 +659,63 @@ function renderStandings() {
     return a.score - b.score;
   });
 
-  var tbl = '<table class="tournament-lb"><thead><tr><th>Pos</th><th>Player</th><th>Score</th><th>Drafted By</th></tr></thead><tbody>';
+  // Build position map for all golfers
   var pos = 1;
   allScores.forEach(function(g, i) {
     if (i > 0 && g.score !== allScores[i - 1].score) pos = i + 1;
+    g.pos = pos;
+  });
+
+  // Render favorites watchlist
+  var favSection = document.getElementById('favoritesSection');
+  var favLb = document.getElementById('favoritesLeaderboard');
+  if (currentPlayerName) {
+    var favGolfers = allScores.filter(function(g) { return isFavorite(g.name); });
+    if (favGolfers.length > 0) {
+      favSection.style.display = '';
+      var ftbl = '<table class="tournament-lb"><thead><tr><th></th><th>Pos</th><th>Player</th><th>Score</th><th>Drafted By</th></tr></thead><tbody>';
+      favGolfers.forEach(function(g) {
+        var rowCls = g.isCut ? 'cut-row' : '';
+        var nameCls = g.draftedBy ? 'drafted' : '';
+        var scoreStr = g.score !== null ? formatScore(g.score) : '--';
+        var posStr = g.score !== null ? (g.isCut ? 'MC' : g.pos) : '--';
+        var sc = g.score !== null ? scoreClass(g.score) : '';
+        var esc = g.name.replace(/'/g, "\\'");
+        ftbl += '<tr class="' + rowCls + '"><td style="cursor:pointer;font-size:1.2em;" onclick="toggleFavorite(\'' + esc + '\')">&#9733;</td><td>' + posStr + '</td><td class="' + nameCls + '">' + g.name + '</td><td class="' + sc + '">' + scoreStr + (g.isCut ? ' (MC)' : '') + '</td><td>' + (g.draftedBy || '') + '</td></tr>';
+      });
+      ftbl += '</tbody></table>';
+      favLb.innerHTML = ftbl;
+    } else {
+      favSection.style.display = 'none';
+    }
+  } else {
+    favSection.style.display = 'none';
+  }
+
+  // Full leaderboard with star toggle
+  var starCol = currentPlayerName ? '<th></th>' : '';
+  var tbl = '<table class="tournament-lb"><thead><tr>' + starCol + '<th>Pos</th><th>Player</th><th>Score</th><th>Drafted By</th></tr></thead><tbody>';
+  allScores.forEach(function(g) {
     var rowCls = g.isCut ? 'cut-row' : '';
     var nameCls = g.draftedBy ? 'drafted' : '';
     var scoreStr = g.score !== null ? formatScore(g.score) : '--';
-    var posStr = g.score !== null ? (g.isCut ? 'MC' : pos) : '--';
+    var posStr = g.score !== null ? (g.isCut ? 'MC' : g.pos) : '--';
     var sc = g.score !== null ? scoreClass(g.score) : '';
-    tbl += '<tr class="' + rowCls + '"><td>' + posStr + '</td><td class="' + nameCls + '">' + g.name + '</td><td class="' + sc + '">' + scoreStr + (g.isCut ? ' (MC)' : '') + '</td><td>' + (g.draftedBy || '') + '</td></tr>';
+    var starTd = '';
+    if (currentPlayerName) {
+      var esc = g.name.replace(/'/g, "\\'");
+      var starIcon = isFavorite(g.name) ? '&#9733;' : '&#9734;';
+      var starColor = isFavorite(g.name) ? 'color:var(--masters-gold);' : 'color:var(--text-dim);';
+      starTd = '<td style="cursor:pointer;font-size:1.2em;' + starColor + '" onclick="toggleFavorite(\'' + esc + '\')">' + starIcon + '</td>';
+    }
+    tbl += '<tr class="' + rowCls + '">' + starTd + '<td>' + posStr + '</td><td class="' + nameCls + '">' + g.name + '</td><td class="' + sc + '">' + scoreStr + (g.isCut ? ' (MC)' : '') + '</td><td>' + (g.draftedBy || '') + '</td></tr>';
   });
   tbl += '</tbody></table>';
   document.getElementById('tournamentLeaderboard').innerHTML = tbl;
+
+  // Clear search when re-rendering
+  var searchEl = document.getElementById('golferSearch');
+  if (searchEl && searchEl.value) filterLeaderboard(searchEl.value);
 }
 
 // ===== LIVE SCORES (ESPN) =====
@@ -820,10 +876,73 @@ function showToast(msg) {
   setTimeout(function() { t.classList.remove('show'); }, 2500);
 }
 
+// ===== PLAYER IDENTITY & FAVORITES =====
+var currentPlayerName = '';
+var playerFavorites = {}; // player -> { golferName: true }
+
+function initPlayerSelector() {
+  var sel = document.getElementById('currentPlayer');
+  PLAYERS.forEach(function(p) {
+    var opt = document.createElement('option');
+    opt.value = p;
+    opt.textContent = p;
+    sel.appendChild(opt);
+  });
+  // Restore from localStorage
+  var saved = localStorage.getItem('mastersCurrentPlayer');
+  if (saved && PLAYERS.indexOf(saved) !== -1) {
+    sel.value = saved;
+    currentPlayerName = saved;
+  }
+}
+
+function setCurrentPlayer(name) {
+  currentPlayerName = name;
+  if (name) localStorage.setItem('mastersCurrentPlayer', name);
+  else localStorage.removeItem('mastersCurrentPlayer');
+  renderStandings();
+}
+
+function toggleFavorite(golfer) {
+  if (!currentPlayerName) return;
+  if (!playerFavorites[currentPlayerName]) playerFavorites[currentPlayerName] = {};
+  if (playerFavorites[currentPlayerName][golfer]) {
+    delete playerFavorites[currentPlayerName][golfer];
+  } else {
+    playerFavorites[currentPlayerName][golfer] = true;
+  }
+  db.ref('favorites/' + currentPlayerName).set(playerFavorites[currentPlayerName] || {});
+  renderStandings();
+}
+
+function isFavorite(golfer) {
+  if (!currentPlayerName || !playerFavorites[currentPlayerName]) return false;
+  return !!playerFavorites[currentPlayerName][golfer];
+}
+
+// Listen for favorites from Firebase
+db.ref('favorites').on('value', function(snap) {
+  playerFavorites = snap.val() || {};
+  renderStandings();
+});
+
+// ===== SEARCH =====
+function filterLeaderboard(query) {
+  var rows = document.querySelectorAll('#tournamentLeaderboard tbody tr');
+  var q = query.toLowerCase().trim();
+  rows.forEach(function(row) {
+    if (!q) { row.style.display = ''; return; }
+    var name = row.children[1] ? row.children[1].textContent.toLowerCase() : '';
+    row.style.display = name.includes(q) ? '' : 'none';
+  });
+}
+
 // INIT — Firebase listeners above handle rendering automatically
 // Clean up any bad Firebase keys with dots (one-time fix)
 db.ref('golferScores/J.J. Spaun').remove();
 db.ref('golferStatus/J.J. Spaun').remove();
+
+initPlayerSelector();
 
 // Auto-fetch scores on load and every 60 seconds
 fetchLiveScores();
