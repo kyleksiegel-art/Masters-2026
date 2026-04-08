@@ -939,8 +939,8 @@ function filterLeaderboard(query) {
   var q = query.toLowerCase().trim();
   rows.forEach(function(row) {
     if (!q) { row.style.display = ''; return; }
-    var name = row.children[1] ? row.children[1].textContent.toLowerCase() : '';
-    row.style.display = name.includes(q) ? '' : 'none';
+    var text = row.textContent.toLowerCase();
+    row.style.display = text.includes(q) ? '' : 'none';
   });
 }
 
