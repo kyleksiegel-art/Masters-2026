@@ -141,10 +141,76 @@
   .toast.show { transform: translateY(0); opacity: 1; }
 
   @media (max-width: 768px) {
-    header h1 { font-size: 1.4em; }
-    .draft-grid { grid-template-columns: 50px repeat(5, 1fr); font-size: 0.8em; }
-    .tab-btn { padding: 10px 14px; font-size: 0.8em; }
-    .teams-grid { grid-template-columns: 1fr; }
+    /* Header */
+    header { padding: 16px 8px; }
+    header h1 { font-size: 1.3em; letter-spacing: 1px; }
+    header p { font-size: 0.85em; }
+
+    /* Sticky tabs */
+    .tabs { position: sticky; top: 0; z-index: 50; }
+    .tab-btn { padding: 12px 8px; font-size: 0.75em; flex: 1; text-align: center; letter-spacing: 0.5px; }
+
+    /* Tab content */
+    .tab-content { padding: 12px 8px; }
+
+    /* Draft grid — horizontal scroll */
+    .draft-grid { grid-template-columns: 40px repeat(5, minmax(80px, 1fr)); font-size: 0.75em; overflow-x: auto; }
+    .draft-cell { padding: 6px 4px; min-height: 44px; }
+    .draft-cell select { font-size: 0.8em; padding: 6px 2px; }
+    .draft-header { padding: 8px 4px; font-size: 0.75em; }
+    .draft-round-label { padding: 8px 4px; font-size: 0.75em; }
+    .draft-controls { flex-direction: column; align-items: stretch; gap: 8px; }
+    .draft-controls .btn { text-align: center; }
+
+    /* Teams — single column, tighter spacing */
+    .teams-grid { grid-template-columns: 1fr; gap: 12px; }
+    .team-panel-header { padding: 12px 14px; }
+    .team-panel-header .tp-rank { font-size: 1.5em; margin-right: 10px; }
+    .team-panel-header .tp-name { font-size: 1.15em; }
+    .team-panel-header .tp-total { font-size: 1.4em; padding: 4px 10px; }
+    .tp-golfer-row { padding: 10px 12px; }
+    .tp-golfer-name { font-size: 0.9em; }
+    .tp-golfer-score { font-size: 1em; min-width: 45px; }
+    .tp-golfer-pos { font-size: 0.75em; min-width: 32px; }
+    .tp-footer { padding: 10px 14px; }
+    .mc-rule-banner { padding: 10px 12px; font-size: 0.85em; }
+    .mc-rule-banner .rule-text { font-size: 0.8em; }
+
+    /* Standings table — compact */
+    .standings-table th { padding: 8px 6px; font-size: 0.7em; }
+    .standings-table td { padding: 8px 6px; font-size: 0.8em; }
+    .standings-table .st-golfers { display: none; }
+    .standings-table .st-best, .standings-table .st-worst { display: none; }
+    .standings-table .st-rank { width: 30px; font-size: 1em; }
+    .standings-table .st-name { font-size: 0.95em; }
+    .standings-table .st-score { font-size: 1em; }
+
+    /* Tournament leaderboard — compact */
+    .tournament-lb th { padding: 8px 6px; font-size: 0.7em; }
+    .tournament-lb td { padding: 7px 6px; font-size: 0.85em; }
+
+    /* Section title */
+    .section-title { font-size: 1em; margin: 20px 0 8px; }
+
+    /* Refresh bar */
+    .refresh-bar { flex-direction: column; align-items: stretch; gap: 8px; }
+    .refresh-bar .btn { text-align: center; }
+    .refresh-info { text-align: center; }
+
+    /* Scores tab */
+    .settings-panel { padding: 12px; }
+    .score-input-grid { grid-template-columns: 1fr; }
+    .score-input-row { gap: 6px; }
+    .score-input-row label { min-width: 100px; font-size: 0.75em; }
+
+    /* Buttons — bigger tap targets */
+    .btn { padding: 14px 20px; font-size: 0.95em; width: 100%; }
+
+    /* Search bar full width */
+    #golferSearch { max-width: 100% !important; }
+
+    /* Toast */
+    .toast { left: 12px; right: 12px; bottom: 12px; text-align: center; }
   }
 </style>
 </head>
@@ -195,6 +261,7 @@
     <span class="rule-text">Missed Cut: R2 score + (worst of R3 + 3) + (worst of R4 + 3)</span>
     <span class="rule-value" id="mcPenaltyDisplay"></span>
   </div>
+  <div id="teamsLastUpdated" style="text-align:right; font-size:0.85em; color:var(--text-dim); margin-bottom:8px;"></div>
   <div id="teamsContainer"></div>
 </div>
 
@@ -202,6 +269,7 @@
 <div id="tab-leaderboard" class="tab-content active">
   <div class="refresh-bar">
     <span class="refresh-info">Team standings ranked by combined score to par</span>
+    <span class="refresh-info" id="standingsLastUpdated"></span>
     <button class="btn btn-primary" onclick="fetchLiveScores()">Refresh Scores</button>
   </div>
   <div id="standingsContainer"></div>
@@ -745,10 +813,29 @@ async function fetchLiveScores() {
 
     var mastersEvent = null;
     if (data.events) {
-      mastersEvent = data.events.find(function(e) { return e.name && (e.name.toLowerCase().includes('masters') || e.name.toLowerCase().includes('augusta')); });
+      mastersEvent = data.events.find(function(e) {
+        var n = (e.name || '').toLowerCase();
+        var sn = (e.shortName || '').toLowerCase();
+        return n.includes('masters') || n.includes('augusta') || sn.includes('masters') || sn.includes('augusta');
+      });
+      // Fallback: if only one event is live and it has golfers from our list, use it
+      if (!mastersEvent && data.events.length > 0) {
+        for (var ei = 0; ei < data.events.length; ei++) {
+          var ev = data.events[ei];
+          if (ev.competitions && ev.competitions[0] && ev.competitions[0].competitors) {
+            var comps = ev.competitions[0].competitors;
+            var fieldMatch = comps.some(function(c) {
+              var cName = c.athlete ? (c.athlete.displayName || '').replace(/\./g, '') : '';
+              return GOLFERS.some(function(g) { return g.toLowerCase() === cName.toLowerCase(); });
+            });
+            if (fieldMatch) { mastersEvent = ev; break; }
+          }
+        }
+      }
     }
     if (!mastersEvent || !mastersEvent.competitions || !mastersEvent.competitions[0]) {
-      if (statusEl) { statusEl.className = 'api-status disconnected'; statusEl.textContent = 'Masters not found on ESPN. Tournament may not have started yet (April 9-12). Enter scores manually.'; }
+      var evNames = data.events ? data.events.map(function(e) { return e.name || e.shortName || 'unknown'; }).join(', ') : 'none';
+      if (statusEl) { statusEl.className = 'api-status disconnected'; statusEl.textContent = 'Masters not found on ESPN (events: ' + evNames + '). Enter scores manually.'; }
       return;
     }
 
@@ -758,19 +845,43 @@ async function fetchLiveScores() {
     var allR3scores = []; // collect R3 scores to par from active golfers
     var allR4scores = []; // collect R4 scores to par from active golfers
 
+    // Log first competitor's full structure for debugging
+    if (competitors.length > 0) {
+      console.log('[Masters Debug] Sample competitor keys:', Object.keys(competitors[0]));
+      console.log('[Masters Debug] Sample status:', JSON.stringify(competitors[0].status));
+      if (competitors[0].statistics) console.log('[Masters Debug] Sample statistics:', JSON.stringify(competitors[0].statistics).substring(0, 500));
+    }
+
     competitors.forEach(function(c) {
       var name = c.athlete ? c.athlete.displayName : '';
       if (!name) return;
       var cleanName = name.replace(/\./g, '');
+      // Normalize special characters for matching (Åberg → Aberg, etc.)
+      var normName = cleanName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
       var match = GOLFERS.find(function(g) {
-        return g.toLowerCase() === cleanName.toLowerCase() ||
-          g.toLowerCase() === name.toLowerCase() ||
-          g.toLowerCase().includes(cleanName.toLowerCase()) ||
-          cleanName.toLowerCase().includes(g.split(' ').pop().toLowerCase());
+        var gClean = g.replace(/\./g, '');
+        var gNorm = gClean.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        // Exact match
+        if (gNorm === normName) return true;
+        if (gClean.toLowerCase() === cleanName.toLowerCase()) return true;
+        if (g.toLowerCase() === name.toLowerCase()) return true;
+        // Bidirectional contains
+        if (gNorm.includes(normName) || normName.includes(gNorm)) return true;
+        // Last name match (bidirectional)
+        var gLast = gNorm.split(' ').pop();
+        var eLast = normName.split(' ').pop();
+        if (gLast.length > 2 && eLast.length > 2 && (gLast === eLast)) return true;
+        return false;
       });
+      if (!match) {
+        // Log unmatched ESPN golfers that might be in our list
+        var espnLast = name.split(' ').pop().toLowerCase();
+        var possibleMatch = GOLFERS.find(function(g) { return g.toLowerCase().includes(espnLast); });
+        if (possibleMatch) console.log('[Masters Debug] UNMATCHED: ESPN "' + name + '" might be "' + possibleMatch + '"');
+      }
       if (match) {
-        var status_c = c.status && c.status.type ? c.status.type.name : '';
-        var isCut = status_c === 'cut';
+        var status_c = c.status && c.status.type ? (c.status.type.name || '').toLowerCase() : '';
+        var isCut = status_c === 'cut' || status_c === 'status_cut';
 
         if (isCut) {
           // For cut golfers, store their R2 cumulative score to par
@@ -789,17 +900,57 @@ async function fetchLiveScores() {
           else scoreToPar = rawScore !== null ? parseInt(rawScore) : null;
           if (scoreToPar !== null && !isNaN(scoreToPar)) golferScores[match] = scoreToPar;
 
-          // Track current hole
+          // Track current hole — try multiple ESPN field paths
           var holeDisplay = '';
           if (c.status && c.status.type) {
-            var stName = c.status.type.name || '';
-            if (stName === 'complete' || c.status.type.completed) holeDisplay = 'F';
-            else if (c.status.displayValue) holeDisplay = c.status.displayValue;
-            else if (c.status.period) holeDisplay = 'R' + c.status.period;
+            var stName = (c.status.type.name || '').toLowerCase();
+            var stDesc = (c.status.type.description || '').toLowerCase();
+            // Check if round/day is complete
+            if (stName === 'status_final' || stName === 'complete' || c.status.type.completed) {
+              holeDisplay = 'F';
+            }
           }
-          if (c.linescores) {
-            var totalRounds = c.linescores.length;
-            if (!holeDisplay && totalRounds > 0) holeDisplay = 'R' + totalRounds;
+          // If not finished, look for thru/hole data
+          if (!holeDisplay) {
+            // Try c.status.thru (direct thru field)
+            if (c.status && c.status.thru !== undefined && c.status.thru !== null) {
+              holeDisplay = c.status.thru === 0 ? '--' : String(c.status.thru);
+            }
+            // Try c.status.hole
+            else if (c.status && c.status.hole !== undefined && c.status.hole !== null) {
+              holeDisplay = String(c.status.hole);
+            }
+            // Try c.completedHoles
+            else if (c.completedHoles !== undefined && c.completedHoles !== null) {
+              holeDisplay = c.completedHoles === 0 ? '--' : String(c.completedHoles);
+            }
+            // Try parsing thru from displayValue (might be "Thru 12", "1:30 PM", etc.)
+            else if (c.status && c.status.displayValue) {
+              var dv = c.status.displayValue;
+              var thruMatch = dv.match(/thru\s+(\d+)/i);
+              if (thruMatch) {
+                holeDisplay = thruMatch[1];
+              } else if (/^\d+$/.test(dv.trim())) {
+                holeDisplay = dv.trim(); // Plain number
+              } else if (dv.toLowerCase().includes('am') || dv.toLowerCase().includes('pm') || dv.includes(':')) {
+                holeDisplay = '--'; // Tee time, not started
+              } else {
+                holeDisplay = dv; // Use as-is
+              }
+            }
+            // Try statistics array for thru data
+            else if (c.statistics && Array.isArray(c.statistics)) {
+              var thruStat = c.statistics.find(function(s) {
+                return s.name === 'thru' || s.abbreviation === 'THRU';
+              });
+              if (thruStat && thruStat.displayValue) {
+                holeDisplay = thruStat.displayValue;
+              }
+            }
+          }
+          // Log for debugging
+          if (!holeDisplay || holeDisplay === '--') {
+            console.log('[Masters Debug] No thru data for ' + match + ': status=' + JSON.stringify(c.status) + ', completedHoles=' + c.completedHoles);
           }
           golferHoles[match] = holeDisplay || '--';
 
@@ -835,6 +986,10 @@ async function fetchLiveScores() {
     if (statusEl) { statusEl.className = 'api-status connected'; statusEl.innerHTML = '<span class="live-dot"></span> Connected to ESPN — ' + matched + ' golfers matched. Last updated: ' + now; }
     document.getElementById('liveDot').style.display = 'inline-block';
     document.getElementById('refreshInfo').textContent = 'Last updated: ' + now;
+    var slu = document.getElementById('standingsLastUpdated');
+    if (slu) slu.innerHTML = '<span class="live-dot"></span> Updated: ' + now;
+    var tlu = document.getElementById('teamsLastUpdated');
+    if (tlu) tlu.innerHTML = '<span class="live-dot"></span> Updated: ' + now;
     showToast('Scores updated — ' + matched + ' golfers matched');
   } catch (err) {
     if (statusEl) { statusEl.className = 'api-status disconnected'; statusEl.textContent = 'Could not fetch live scores: ' + err.message + '. Enter scores manually.'; }
