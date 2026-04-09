@@ -322,6 +322,11 @@
     </p>
     <div class="score-input-grid" id="scoreInputs"></div>
   </div>
+  <div class="settings-panel" style="border-color:var(--masters-gold); margin-top:16px;">
+    <h3 style="color:var(--masters-gold);">ESPN Debug (Temporary)</h3>
+    <p style="color:var(--text-dim); margin-bottom:8px; font-size:0.85em;">Shows raw ESPN data for the first golfer. Screenshot this and send it to fix the Thru column.</p>
+    <pre id="espnDebugOutput" style="background:#0a0f0d; color:#4ecdc4; padding:12px; border-radius:6px; font-size:0.75em; overflow-x:auto; max-height:400px; overflow-y:auto; white-space:pre-wrap; word-break:break-all;">Click "Fetch Live Scores" to see debug data...</pre>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -847,9 +852,30 @@ async function fetchLiveScores() {
 
     // Log first competitor's full structure for debugging
     if (competitors.length > 0) {
-      console.log('[Masters Debug] Sample competitor keys:', Object.keys(competitors[0]));
-      console.log('[Masters Debug] Sample status:', JSON.stringify(competitors[0].status));
-      if (competitors[0].statistics) console.log('[Masters Debug] Sample statistics:', JSON.stringify(competitors[0].statistics).substring(0, 500));
+      var dbgEl = document.getElementById('espnDebugOutput');
+      if (dbgEl) {
+        var sampleC = competitors[0];
+        var debugInfo = {
+          'ALL_KEYS': Object.keys(sampleC),
+          'score': sampleC.score,
+          'status': sampleC.status,
+          'statistics': sampleC.statistics ? sampleC.statistics.slice(0, 5) : 'none',
+          'completedHoles': sampleC.completedHoles,
+          'athlete_name': sampleC.athlete ? sampleC.athlete.displayName : 'none',
+          'linescores': sampleC.linescores
+        };
+        // Also check for any key containing "hole" or "thru"
+        Object.keys(sampleC).forEach(function(k) {
+          var kl = k.toLowerCase();
+          if (kl.includes('hole') || kl.includes('thru') || kl.includes('round') || kl.includes('position')) {
+            debugInfo['FOUND_' + k] = sampleC[k];
+          }
+        });
+        dbgEl.textContent = JSON.stringify(debugInfo, null, 2);
+      }
+      console.log('[Masters Debug] Sample competitor keys:', Object.keys(sampleC));
+      console.log('[Masters Debug] Sample status:', JSON.stringify(sampleC.status));
+      console.log('[Masters Debug] FULL competitor:', JSON.stringify(sampleC).substring(0, 2000));
     }
 
     competitors.forEach(function(c) {
