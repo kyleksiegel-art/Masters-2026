@@ -141,76 +141,10 @@
   .toast.show { transform: translateY(0); opacity: 1; }
 
   @media (max-width: 768px) {
-    /* Header */
-    header { padding: 16px 8px; }
-    header h1 { font-size: 1.3em; letter-spacing: 1px; }
-    header p { font-size: 0.85em; }
-
-    /* Sticky tabs */
-    .tabs { position: sticky; top: 0; z-index: 50; }
-    .tab-btn { padding: 12px 8px; font-size: 0.75em; flex: 1; text-align: center; letter-spacing: 0.5px; }
-
-    /* Tab content */
-    .tab-content { padding: 12px 8px; }
-
-    /* Draft grid — horizontal scroll */
-    .draft-grid { grid-template-columns: 40px repeat(5, minmax(80px, 1fr)); font-size: 0.75em; overflow-x: auto; }
-    .draft-cell { padding: 6px 4px; min-height: 44px; }
-    .draft-cell select { font-size: 0.8em; padding: 6px 2px; }
-    .draft-header { padding: 8px 4px; font-size: 0.75em; }
-    .draft-round-label { padding: 8px 4px; font-size: 0.75em; }
-    .draft-controls { flex-direction: column; align-items: stretch; gap: 8px; }
-    .draft-controls .btn { text-align: center; }
-
-    /* Teams — single column, tighter spacing */
-    .teams-grid { grid-template-columns: 1fr; gap: 12px; }
-    .team-panel-header { padding: 12px 14px; }
-    .team-panel-header .tp-rank { font-size: 1.5em; margin-right: 10px; }
-    .team-panel-header .tp-name { font-size: 1.15em; }
-    .team-panel-header .tp-total { font-size: 1.4em; padding: 4px 10px; }
-    .tp-golfer-row { padding: 10px 12px; }
-    .tp-golfer-name { font-size: 0.9em; }
-    .tp-golfer-score { font-size: 1em; min-width: 45px; }
-    .tp-golfer-pos { font-size: 0.75em; min-width: 32px; }
-    .tp-footer { padding: 10px 14px; }
-    .mc-rule-banner { padding: 10px 12px; font-size: 0.85em; }
-    .mc-rule-banner .rule-text { font-size: 0.8em; }
-
-    /* Standings table — compact */
-    .standings-table th { padding: 8px 6px; font-size: 0.7em; }
-    .standings-table td { padding: 8px 6px; font-size: 0.8em; }
-    .standings-table .st-golfers { display: none; }
-    .standings-table .st-best, .standings-table .st-worst { display: none; }
-    .standings-table .st-rank { width: 30px; font-size: 1em; }
-    .standings-table .st-name { font-size: 0.95em; }
-    .standings-table .st-score { font-size: 1em; }
-
-    /* Tournament leaderboard — compact */
-    .tournament-lb th { padding: 8px 6px; font-size: 0.7em; }
-    .tournament-lb td { padding: 7px 6px; font-size: 0.85em; }
-
-    /* Section title */
-    .section-title { font-size: 1em; margin: 20px 0 8px; }
-
-    /* Refresh bar */
-    .refresh-bar { flex-direction: column; align-items: stretch; gap: 8px; }
-    .refresh-bar .btn { text-align: center; }
-    .refresh-info { text-align: center; }
-
-    /* Scores tab */
-    .settings-panel { padding: 12px; }
-    .score-input-grid { grid-template-columns: 1fr; }
-    .score-input-row { gap: 6px; }
-    .score-input-row label { min-width: 100px; font-size: 0.75em; }
-
-    /* Buttons — bigger tap targets */
-    .btn { padding: 14px 20px; font-size: 0.95em; width: 100%; }
-
-    /* Search bar full width */
-    #golferSearch { max-width: 100% !important; }
-
-    /* Toast */
-    .toast { left: 12px; right: 12px; bottom: 12px; text-align: center; }
+    header h1 { font-size: 1.4em; }
+    .draft-grid { grid-template-columns: 50px repeat(5, 1fr); font-size: 0.8em; }
+    .tab-btn { padding: 10px 14px; font-size: 0.8em; }
+    .teams-grid { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -268,7 +202,6 @@
 <div id="tab-leaderboard" class="tab-content active">
   <div class="refresh-bar">
     <span class="refresh-info">Team standings ranked by combined score to par</span>
-    <span class="refresh-info" id="standingsLastUpdated"></span>
     <button class="btn btn-primary" onclick="fetchLiveScores()">Refresh Scores</button>
   </div>
   <div id="standingsContainer"></div>
@@ -902,8 +835,6 @@ async function fetchLiveScores() {
     if (statusEl) { statusEl.className = 'api-status connected'; statusEl.innerHTML = '<span class="live-dot"></span> Connected to ESPN — ' + matched + ' golfers matched. Last updated: ' + now; }
     document.getElementById('liveDot').style.display = 'inline-block';
     document.getElementById('refreshInfo').textContent = 'Last updated: ' + now;
-    var slu = document.getElementById('standingsLastUpdated');
-    if (slu) slu.innerHTML = '<span class="live-dot"></span> Updated: ' + now;
     showToast('Scores updated — ' + matched + ' golfers matched');
   } catch (err) {
     if (statusEl) { statusEl.className = 'api-status disconnected'; statusEl.textContent = 'Could not fetch live scores: ' + err.message + '. Enter scores manually.'; }
