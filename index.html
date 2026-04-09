@@ -356,7 +356,7 @@ const GOLFERS = [
   "Sepp Straka","Nick Taylor","Justin Thomas","Sami Valimaki","Bubba Watson",
   "Mike Weir","Danny Willett","Gary Woodland","Cameron Young",
   "Naoyuki Kataoka","John Keefer","Ethan Fang","Jackson Herrington",
-  "Brandon Holtz","Mason Howell","Fifa Laopakdee","Mateo Pulcini","Tiger Woods"
+  "Brandon Holtz","Mason Howell","Fifa Laopakdee","Mateo Pulcini"
 ].sort();
 
 function getSnakeDraftOrder() {
@@ -854,28 +854,35 @@ async function fetchLiveScores() {
       var name = c.athlete ? c.athlete.displayName : '';
       if (!name) return;
       var cleanName = name.replace(/\./g, '');
-      // Normalize special characters for matching (Åberg → Aberg, etc.)
-      var normName = cleanName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      // Full normalization: NFD + strip combining marks + replace Nordic chars that NFD misses
+      function fullNorm(s) {
+        return s.replace(/\./g, '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+          .replace(/[øØ]/g, 'o').replace(/[æÆ]/g, 'ae').replace(/[ðÐ]/g, 'd')
+          .replace(/[þÞ]/g, 'th').replace(/[łŁ]/g, 'l').replace(/[ñÑ]/g, 'n')
+          .replace(/[ßẞ]/g, 'ss').toLowerCase();
+      }
+      var normName = fullNorm(name);
       var match = GOLFERS.find(function(g) {
-        var gClean = g.replace(/\./g, '');
-        var gNorm = gClean.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-        // Exact match
+        var gNorm = fullNorm(g);
+        // Exact normalized match
         if (gNorm === normName) return true;
-        if (gClean.toLowerCase() === cleanName.toLowerCase()) return true;
+        // Exact original match (case insensitive)
         if (g.toLowerCase() === name.toLowerCase()) return true;
         // Bidirectional contains
         if (gNorm.includes(normName) || normName.includes(gNorm)) return true;
         // Last name match (bidirectional)
         var gLast = gNorm.split(' ').pop();
         var eLast = normName.split(' ').pop();
-        if (gLast.length > 2 && eLast.length > 2 && (gLast === eLast)) return true;
+        if (gLast.length > 2 && eLast.length > 2 && gLast === eLast) return true;
+        // First + last initials match (e.g., "Si Woo Kim" vs "S.W. Kim")
+        var gFirst = gNorm.split(' ')[0];
+        var eFirst = normName.split(' ')[0];
+        if (gLast === eLast && gFirst[0] === eFirst[0]) return true;
         return false;
       });
-      if (!match) {
-        // Log unmatched ESPN golfers that might be in our list
-        var espnLast = name.split(' ').pop().toLowerCase();
-        var possibleMatch = GOLFERS.find(function(g) { return g.toLowerCase().includes(espnLast); });
-        if (possibleMatch) console.log('[Masters Debug] UNMATCHED: ESPN "' + name + '" might be "' + possibleMatch + '"');
+      if (!match && c.score !== undefined) {
+        // Log unmatched ESPN golfers who have scores (meaning they've started)
+        console.log('[Masters] UNMATCHED golfer with score: "' + name + '" (score: ' + c.score + ')');
       }
       if (match) {
         // ESPN golf has no "status" field — detect cut from type field or score context
@@ -1122,6 +1129,9 @@ function filterLeaderboard(query) {
 // Clean up any bad Firebase keys with dots (one-time fix)
 db.ref('golferScores/J.J. Spaun').remove();
 db.ref('golferStatus/J.J. Spaun').remove();
+db.ref('golferScores/Tiger Woods').remove();
+db.ref('golferStatus/Tiger Woods').remove();
+db.ref('golferHoles/Tiger Woods').remove();
 
 initPlayerSelector();
 restoreTab();
