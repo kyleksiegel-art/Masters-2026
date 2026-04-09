@@ -277,6 +277,7 @@
     <h2 class="section-title">My Watchlist</h2>
     <div id="favoritesLeaderboard"></div>
   </div>
+  <div id="standingsDebug" style="padding:10px; margin-bottom:12px; background:#1a1a0a; border:1px solid var(--masters-gold); border-radius:6px; font-size:0.75em; color:#4ecdc4; font-family:monospace;"></div>
   <h2 class="section-title">Full Tournament Leaderboard</h2>
   <div style="margin-bottom:12px;">
     <input type="text" id="golferSearch" placeholder="Search golfers..." oninput="filterLeaderboard(this.value)" onkeyup="filterLeaderboard(this.value)" style="width:100%; max-width:350px; padding:8px 12px; background:#fff; color:#222; border:2px solid var(--card-border); border-radius:6px; font-family:inherit; font-size:1em;">
@@ -322,7 +323,6 @@
     </p>
     <div class="score-input-grid" id="scoreInputs"></div>
   </div>
-  <div id="unmatchedDebug" style="display:none; margin-top:12px; padding:12px; background:#1a1a0a; border:1px solid var(--masters-gold); border-radius:8px; font-size:0.8em; color:var(--text-dim); max-height:300px; overflow-y:auto;"></div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -732,6 +732,24 @@ function renderStandings() {
   // Full tournament leaderboard
   var pickedMap = {};
   draftPicks.forEach(function(p) { pickedMap[p.golfer] = p.player; });
+  // Debug: check specific golfers
+  var debugNames = ['Rasmus Højgaard', 'Si Woo Kim', 'Zach Johnson'];
+  var debugInfo = debugNames.map(function(dn) {
+    var inGolfers = GOLFERS.indexOf(dn) >= 0;
+    var rawScore = golferScores[dn];
+    var rawHole = golferHoles[dn];
+    return dn + ': inArray=' + inGolfers + ', rawScore=' + JSON.stringify(rawScore) + ', rawHole=' + JSON.stringify(rawHole);
+  });
+  // Also dump all golferScores keys that contain "kim" or "john" or "hoj"
+  var scoreKeys = Object.keys(golferScores).filter(function(k) {
+    var kl = k.toLowerCase();
+    return kl.includes('kim') || kl.includes('john') || kl.includes('hoj') || kl.includes('høj');
+  });
+  var sdEl = document.getElementById('standingsDebug');
+  if (sdEl) {
+    sdEl.innerHTML = '<b>DEBUG:</b><br>' + debugInfo.join('<br>') + '<br><b>Score keys with kim/john/hoj:</b> ' + (scoreKeys.length > 0 ? scoreKeys.join(', ') : 'NONE FOUND') + '<br><b>Total scores stored:</b> ' + Object.keys(golferScores).length;
+  }
+
   var allScores = GOLFERS.map(function(g) {
     var st = golferStatus[g] || 'active';
     var score = st === 'cut' ? getCutGolferTotal(g) : parseScore(golferScores[g]);
