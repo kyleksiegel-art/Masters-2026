@@ -277,7 +277,6 @@
     <h2 class="section-title">My Watchlist</h2>
     <div id="favoritesLeaderboard"></div>
   </div>
-  <div id="standingsDebug" style="padding:10px; margin-bottom:12px; background:#1a1a0a; border:1px solid var(--masters-gold); border-radius:6px; font-size:0.75em; color:#4ecdc4; font-family:monospace;"></div>
   <h2 class="section-title">Full Tournament Leaderboard</h2>
   <div style="margin-bottom:12px;">
     <input type="text" id="golferSearch" placeholder="Search golfers..." oninput="filterLeaderboard(this.value)" onkeyup="filterLeaderboard(this.value)" style="width:100%; max-width:350px; padding:8px 12px; background:#fff; color:#222; border:2px solid var(--card-border); border-radius:6px; font-family:inherit; font-size:1em;">
@@ -732,24 +731,6 @@ function renderStandings() {
   // Full tournament leaderboard
   var pickedMap = {};
   draftPicks.forEach(function(p) { pickedMap[p.golfer] = p.player; });
-  // Debug: check specific golfers
-  var debugNames = ['Rasmus Højgaard', 'Si Woo Kim', 'Zach Johnson'];
-  var debugInfo = debugNames.map(function(dn) {
-    var inGolfers = GOLFERS.indexOf(dn) >= 0;
-    var rawScore = golferScores[dn];
-    var rawHole = golferHoles[dn];
-    return dn + ': inArray=' + inGolfers + ', rawScore=' + JSON.stringify(rawScore) + ', rawHole=' + JSON.stringify(rawHole);
-  });
-  // Also dump all golferScores keys that contain "kim" or "john" or "hoj"
-  var scoreKeys = Object.keys(golferScores).filter(function(k) {
-    var kl = k.toLowerCase();
-    return kl.includes('kim') || kl.includes('john') || kl.includes('hoj') || kl.includes('høj');
-  });
-  var sdEl = document.getElementById('standingsDebug');
-  if (sdEl) {
-    sdEl.innerHTML = '<b>DEBUG:</b><br>' + debugInfo.join('<br>') + '<br><b>Score keys with kim/john/hoj:</b> ' + (scoreKeys.length > 0 ? scoreKeys.join(', ') : 'NONE FOUND') + '<br><b>Total scores stored:</b> ' + Object.keys(golferScores).length;
-  }
-
   var allScores = GOLFERS.map(function(g) {
     var st = golferStatus[g] || 'active';
     var score = st === 'cut' ? getCutGolferTotal(g) : parseScore(golferScores[g]);
@@ -883,16 +864,15 @@ async function fetchLiveScores() {
         if (gNorm === normName) return true;
         // Exact original match (case insensitive)
         if (g.toLowerCase() === name.toLowerCase()) return true;
-        // Bidirectional contains
+        // Bidirectional contains (full name)
         if (gNorm.includes(normName) || normName.includes(gNorm)) return true;
-        // Last name match (bidirectional)
+        // First initial + last name match (e.g., "S.W. Kim" → "Si Woo Kim")
+        // Requires BOTH last name match AND same first initial to avoid wrong golfer
         var gLast = gNorm.split(' ').pop();
         var eLast = normName.split(' ').pop();
-        if (gLast.length > 2 && eLast.length > 2 && gLast === eLast) return true;
-        // First + last initials match (e.g., "Si Woo Kim" vs "S.W. Kim")
         var gFirst = gNorm.split(' ')[0];
         var eFirst = normName.split(' ')[0];
-        if (gLast === eLast && gFirst[0] === eFirst[0]) return true;
+        if (gLast.length > 2 && gLast === eLast && gFirst[0] === eFirst[0]) return true;
         return false;
       });
       if (!match) {
@@ -992,17 +972,6 @@ async function fetchLiveScores() {
     var tlu = document.getElementById('teamsLastUpdated');
     if (tlu) tlu.innerHTML = '<span class="live-dot"></span> Updated: ' + now;
     showToast('Scores updated — ' + matched + ' golfers matched');
-    // Show unmatched ESPN names so we can debug name mismatches
-    var unmatchedEl = document.getElementById('unmatchedDebug');
-    if (unmatchedEl) {
-      if (unmatchedList.length > 0) {
-        unmatchedEl.innerHTML = '<strong style="color:var(--masters-gold);">Unmatched ESPN names (' + unmatchedList.length + '):</strong><br>' + unmatchedList.join('<br>');
-        unmatchedEl.style.display = 'block';
-      } else {
-        unmatchedEl.innerHTML = '<strong style="color:#2ecc71;">All ESPN golfers matched!</strong>';
-        unmatchedEl.style.display = 'block';
-      }
-    }
   } catch (err) {
     if (statusEl) { statusEl.className = 'api-status disconnected'; statusEl.textContent = 'Could not fetch live scores: ' + err.message + '. Enter scores manually.'; }
   }
