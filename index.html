@@ -322,6 +322,7 @@
     </p>
     <div class="score-input-grid" id="scoreInputs"></div>
   </div>
+  <div id="unmatchedDebug" style="display:none; margin-top:12px; padding:12px; background:#1a1a0a; border:1px solid var(--masters-gold); border-radius:8px; font-size:0.8em; color:var(--text-dim); max-height:300px; overflow-y:auto;"></div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -844,11 +845,7 @@ async function fetchLiveScores() {
     var PAR = 72; // Augusta National par
     var allR3scores = []; // collect R3 scores to par from active golfers
     var allR4scores = []; // collect R4 scores to par from active golfers
-
-    // Debug: log first competitor structure
-    if (competitors.length > 0) {
-      console.log('[Masters] ESPN data keys:', Object.keys(competitors[0]), 'Total competitors:', competitors.length);
-    }
+    var unmatchedList = []; // track unmatched ESPN names
 
     competitors.forEach(function(c) {
       var name = c.athlete ? c.athlete.displayName : '';
@@ -880,9 +877,8 @@ async function fetchLiveScores() {
         if (gLast === eLast && gFirst[0] === eFirst[0]) return true;
         return false;
       });
-      if (!match && c.score !== undefined) {
-        // Log unmatched ESPN golfers who have scores (meaning they've started)
-        console.log('[Masters] UNMATCHED golfer with score: "' + name + '" (score: ' + c.score + ')');
+      if (!match) {
+        unmatchedList.push(name + (c.score !== undefined ? ' (' + c.score + ')' : ' (no score)'));
       }
       if (match) {
         // ESPN golf has no "status" field — detect cut from type field or score context
@@ -978,6 +974,17 @@ async function fetchLiveScores() {
     var tlu = document.getElementById('teamsLastUpdated');
     if (tlu) tlu.innerHTML = '<span class="live-dot"></span> Updated: ' + now;
     showToast('Scores updated — ' + matched + ' golfers matched');
+    // Show unmatched ESPN names so we can debug name mismatches
+    var unmatchedEl = document.getElementById('unmatchedDebug');
+    if (unmatchedEl) {
+      if (unmatchedList.length > 0) {
+        unmatchedEl.innerHTML = '<strong style="color:var(--masters-gold);">Unmatched ESPN names (' + unmatchedList.length + '):</strong><br>' + unmatchedList.join('<br>');
+        unmatchedEl.style.display = 'block';
+      } else {
+        unmatchedEl.innerHTML = '<strong style="color:#2ecc71;">All ESPN golfers matched!</strong>';
+        unmatchedEl.style.display = 'block';
+      }
+    }
   } catch (err) {
     if (statusEl) { statusEl.className = 'api-status disconnected'; statusEl.textContent = 'Could not fetch live scores: ' + err.message + '. Enter scores manually.'; }
   }
