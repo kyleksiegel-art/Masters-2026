@@ -141,10 +141,76 @@
   .toast.show { transform: translateY(0); opacity: 1; }
 
   @media (max-width: 768px) {
-    header h1 { font-size: 1.4em; }
-    .draft-grid { grid-template-columns: 50px repeat(5, 1fr); font-size: 0.8em; }
-    .tab-btn { padding: 10px 14px; font-size: 0.8em; }
-    .teams-grid { grid-template-columns: 1fr; }
+    /* Header */
+    header { padding: 16px 8px; }
+    header h1 { font-size: 1.3em; letter-spacing: 1px; }
+    header p { font-size: 0.85em; }
+
+    /* Sticky tabs */
+    .tabs { position: sticky; top: 0; z-index: 50; }
+    .tab-btn { padding: 12px 8px; font-size: 0.75em; flex: 1; text-align: center; letter-spacing: 0.5px; }
+
+    /* Tab content */
+    .tab-content { padding: 12px 8px; }
+
+    /* Draft grid — horizontal scroll */
+    .draft-grid { grid-template-columns: 40px repeat(5, minmax(80px, 1fr)); font-size: 0.75em; overflow-x: auto; }
+    .draft-cell { padding: 6px 4px; min-height: 44px; }
+    .draft-cell select { font-size: 0.8em; padding: 6px 2px; }
+    .draft-header { padding: 8px 4px; font-size: 0.75em; }
+    .draft-round-label { padding: 8px 4px; font-size: 0.75em; }
+    .draft-controls { flex-direction: column; align-items: stretch; gap: 8px; }
+    .draft-controls .btn { text-align: center; }
+
+    /* Teams — single column, tighter spacing */
+    .teams-grid { grid-template-columns: 1fr; gap: 12px; }
+    .team-panel-header { padding: 12px 14px; }
+    .team-panel-header .tp-rank { font-size: 1.5em; margin-right: 10px; }
+    .team-panel-header .tp-name { font-size: 1.15em; }
+    .team-panel-header .tp-total { font-size: 1.4em; padding: 4px 10px; }
+    .tp-golfer-row { padding: 10px 12px; }
+    .tp-golfer-name { font-size: 0.9em; }
+    .tp-golfer-score { font-size: 1em; min-width: 45px; }
+    .tp-golfer-pos { font-size: 0.75em; min-width: 32px; }
+    .tp-footer { padding: 10px 14px; }
+    .mc-rule-banner { padding: 10px 12px; font-size: 0.85em; }
+    .mc-rule-banner .rule-text { font-size: 0.8em; }
+
+    /* Standings table — compact */
+    .standings-table th { padding: 8px 6px; font-size: 0.7em; }
+    .standings-table td { padding: 8px 6px; font-size: 0.8em; }
+    .standings-table .st-golfers { display: none; }
+    .standings-table .st-best, .standings-table .st-worst { display: none; }
+    .standings-table .st-rank { width: 30px; font-size: 1em; }
+    .standings-table .st-name { font-size: 0.95em; }
+    .standings-table .st-score { font-size: 1em; }
+
+    /* Tournament leaderboard — compact */
+    .tournament-lb th { padding: 8px 6px; font-size: 0.7em; }
+    .tournament-lb td { padding: 7px 6px; font-size: 0.85em; }
+
+    /* Section title */
+    .section-title { font-size: 1em; margin: 20px 0 8px; }
+
+    /* Refresh bar */
+    .refresh-bar { flex-direction: column; align-items: stretch; gap: 8px; }
+    .refresh-bar .btn { text-align: center; }
+    .refresh-info { text-align: center; }
+
+    /* Scores tab */
+    .settings-panel { padding: 12px; }
+    .score-input-grid { grid-template-columns: 1fr; }
+    .score-input-row { gap: 6px; }
+    .score-input-row label { min-width: 100px; font-size: 0.75em; }
+
+    /* Buttons — bigger tap targets */
+    .btn { padding: 14px 20px; font-size: 0.95em; width: 100%; }
+
+    /* Search bar full width */
+    #golferSearch { max-width: 100% !important; }
+
+    /* Toast */
+    .toast { left: 12px; right: 12px; bottom: 12px; text-align: center; }
   }
 </style>
 </head>
@@ -202,6 +268,7 @@
 <div id="tab-leaderboard" class="tab-content active">
   <div class="refresh-bar">
     <span class="refresh-info">Team standings ranked by combined score to par</span>
+    <span class="refresh-info" id="standingsLastUpdated"></span>
     <button class="btn btn-primary" onclick="fetchLiveScores()">Refresh Scores</button>
   </div>
   <div id="standingsContainer"></div>
@@ -211,7 +278,7 @@
   </div>
   <h2 class="section-title">Full Tournament Leaderboard</h2>
   <div style="margin-bottom:12px;">
-    <input type="text" id="golferSearch" placeholder="Search golfers..." oninput="filterLeaderboard(this.value)" style="width:100%; max-width:350px; padding:8px 12px; background:#1a2b23; color:var(--text); border:1px solid var(--card-border); border-radius:6px; font-family:inherit; font-size:0.9em;">
+    <input type="text" id="golferSearch" placeholder="Search golfers..." oninput="filterLeaderboard(this.value)" onkeyup="filterLeaderboard(this.value)" style="width:100%; max-width:350px; padding:8px 12px; background:#fff; color:#222; border:2px solid var(--card-border); border-radius:6px; font-family:inherit; font-size:1em;">
   </div>
   <div id="tournamentLeaderboard"></div>
 </div>
@@ -305,6 +372,7 @@ const DRAFT_ORDER = getSnakeDraftOrder();
 let draftPicks = [];
 let golferScores = {};    // golfer -> total to par (active) or R2 score to par (cut)
 let golferStatus = {};    // golfer -> 'active' or 'cut'
+let golferHoles = {};     // golfer -> current hole or 'F' for finished
 let worstRounds = { r3: null, r4: null };  // worst score to par for R3 and R4
 
 function saveDraft() {
@@ -318,6 +386,7 @@ function sanitizeKeys(obj) {
 function saveScores() {
   db.ref('golferScores').set(sanitizeKeys(golferScores));
   db.ref('golferStatus').set(sanitizeKeys(golferStatus));
+  db.ref('golferHoles').set(sanitizeKeys(golferHoles));
 }
 function saveWorstRounds() {
   db.ref('worstRounds').set(worstRounds);
@@ -342,6 +411,10 @@ db.ref('golferScores').on('value', function(snap) {
 });
 db.ref('golferStatus').on('value', function(snap) {
   golferStatus = sanitizeKeys(snap.val() || {});
+  refreshAllViews();
+});
+db.ref('golferHoles').on('value', function(snap) {
+  golferHoles = sanitizeKeys(snap.val() || {});
   refreshAllViews();
 });
 db.ref('worstRounds').on('value', function(snap) {
@@ -522,9 +595,11 @@ function getTeamData() {
 
     var pos = isCut ? 'MC' : (posMap[pick.golfer] ? 'T' + posMap[pick.golfer] : '--');
 
+    var hole = golferHoles[pick.golfer] || '--';
+
     teams[pick.player].golfers.push({
       name: pick.golfer, score: score, isCut: isCut, position: pos,
-      r2Score: r2Score, penR3: penR3, penR4: penR4
+      r2Score: r2Score, penR3: penR3, penR4: penR4, thru: hole
     });
     if (score !== null) {
       teams[pick.player].totalScore += score;
@@ -590,10 +665,12 @@ function renderTeams() {
         if (g.penR4 !== null) parts.push(formatScore(g.penR4));
         breakdown = '<span style="font-size:0.75em; color:var(--text-dim); display:block;">(' + parts.join(' + ') + ')</span>';
       }
+      var thruDisplay = g.thru || '--';
       html += '<div class="tp-golfer-row ' + (g.isCut ? 'cut-golfer' : '') + '">' +
         '<span class="tp-golfer-num">' + (gi + 1) + '</span>' +
         '<span class="tp-golfer-name">' + g.name + cutBadge + '</span>' +
         '<span class="tp-golfer-score ' + gsc + '">' + scoreDisplay + breakdown + '</span>' +
+        '<span class="tp-golfer-pos" style="min-width:40px;">' + thruDisplay + '</span>' +
         '<span class="tp-golfer-pos">' + posStr + '</span>' +
       '</div>';
     });
@@ -656,7 +733,8 @@ function renderStandings() {
   var allScores = GOLFERS.map(function(g) {
     var st = golferStatus[g] || 'active';
     var score = st === 'cut' ? getCutGolferTotal(g) : parseScore(golferScores[g]);
-    return { name: g, score: score, isCut: st === 'cut', draftedBy: pickedMap[g] || null };
+    var hole = golferHoles[g] || '--';
+    return { name: g, score: score, isCut: st === 'cut', draftedBy: pickedMap[g] || null, thru: hole };
   }).sort(function(a, b) {
     if (a.score === null && b.score === null) return 0;
     if (a.score === null) return 1;
@@ -678,7 +756,7 @@ function renderStandings() {
     var favGolfers = allScores.filter(function(g) { return isFavorite(g.name); });
     if (favGolfers.length > 0) {
       favSection.style.display = '';
-      var ftbl = '<table class="tournament-lb"><thead><tr><th></th><th>Pos</th><th>Player</th><th>Score</th><th>Drafted By</th></tr></thead><tbody>';
+      var ftbl = '<table class="tournament-lb"><thead><tr><th></th><th>Pos</th><th>Player</th><th>Score</th><th>Thru</th><th>Drafted By</th></tr></thead><tbody>';
       favGolfers.forEach(function(g) {
         var rowCls = g.isCut ? 'cut-row' : '';
         var nameCls = g.draftedBy ? 'drafted' : '';
@@ -686,7 +764,7 @@ function renderStandings() {
         var posStr = g.score !== null ? (g.isCut ? 'MC' : g.pos) : '--';
         var sc = g.score !== null ? scoreClass(g.score) : '';
         var esc = g.name.replace(/'/g, "\\'");
-        ftbl += '<tr class="' + rowCls + '"><td style="cursor:pointer;font-size:1.2em;" onclick="toggleFavorite(\'' + esc + '\')">&#9733;</td><td>' + posStr + '</td><td class="' + nameCls + '">' + g.name + '</td><td class="' + sc + '">' + scoreStr + (g.isCut ? ' (MC)' : '') + '</td><td>' + (g.draftedBy || '') + '</td></tr>';
+        ftbl += '<tr class="' + rowCls + '"><td style="cursor:pointer;font-size:1.2em;" onclick="toggleFavorite(\'' + esc + '\')">&#9733;</td><td>' + posStr + '</td><td class="' + nameCls + '">' + g.name + '</td><td class="' + sc + '">' + scoreStr + (g.isCut ? ' (MC)' : '') + '</td><td>' + g.thru + '</td><td>' + (g.draftedBy || '') + '</td></tr>';
       });
       ftbl += '</tbody></table>';
       favLb.innerHTML = ftbl;
@@ -699,7 +777,7 @@ function renderStandings() {
 
   // Full leaderboard with star toggle
   var starCol = currentPlayerName ? '<th></th>' : '';
-  var tbl = '<table class="tournament-lb"><thead><tr>' + starCol + '<th>Pos</th><th>Player</th><th>Score</th><th>Drafted By</th></tr></thead><tbody>';
+  var tbl = '<table class="tournament-lb"><thead><tr>' + starCol + '<th>Pos</th><th>Player</th><th>Score</th><th>Thru</th><th>Drafted By</th></tr></thead><tbody>';
   allScores.forEach(function(g) {
     var rowCls = g.isCut ? 'cut-row' : '';
     var nameCls = g.draftedBy ? 'drafted' : '';
@@ -713,7 +791,7 @@ function renderStandings() {
       var starColor = isFavorite(g.name) ? 'color:var(--masters-gold);' : 'color:var(--text-dim);';
       starTd = '<td style="cursor:pointer;font-size:1.2em;' + starColor + '" onclick="toggleFavorite(\'' + esc + '\')">' + starIcon + '</td>';
     }
-    tbl += '<tr class="' + rowCls + '">' + starTd + '<td>' + posStr + '</td><td class="' + nameCls + '">' + g.name + '</td><td class="' + sc + '">' + scoreStr + (g.isCut ? ' (MC)' : '') + '</td><td>' + (g.draftedBy || '') + '</td></tr>';
+    tbl += '<tr class="' + rowCls + '">' + starTd + '<td>' + posStr + '</td><td class="' + nameCls + '">' + g.name + '</td><td class="' + sc + '">' + scoreStr + (g.isCut ? ' (MC)' : '') + '</td><td>' + g.thru + '</td><td>' + (g.draftedBy || '') + '</td></tr>';
   });
   tbl += '</tbody></table>';
   document.getElementById('tournamentLeaderboard').innerHTML = tbl;
@@ -764,13 +842,33 @@ async function fetchLiveScores() {
         if (isCut) {
           // For cut golfers, store their R2 cumulative score to par
           golferStatus[match] = 'cut';
-          // Use the total score at time of cut (R1+R2 to par)
-          var scoreToPar = c.score !== undefined ? parseInt(c.score) : null;
-          if (scoreToPar !== null && !isNaN(scoreToPar)) golferScores[match] = scoreToPar;
+          var rawScoreCut = c.score !== undefined ? c.score : null;
+          var scoreToParCut;
+          if (rawScoreCut === 'E' || rawScoreCut === 'e') scoreToParCut = 0;
+          else scoreToParCut = rawScoreCut !== null ? parseInt(rawScoreCut) : null;
+          if (scoreToParCut !== null && !isNaN(scoreToParCut)) golferScores[match] = scoreToParCut;
+          golferHoles[match] = 'MC';
         } else {
           // Active golfer — store total tournament score to par
-          var scoreToPar = c.score !== undefined ? parseInt(c.score) : null;
+          var rawScore = c.score !== undefined ? c.score : null;
+          var scoreToPar;
+          if (rawScore === 'E' || rawScore === 'e') scoreToPar = 0;
+          else scoreToPar = rawScore !== null ? parseInt(rawScore) : null;
           if (scoreToPar !== null && !isNaN(scoreToPar)) golferScores[match] = scoreToPar;
+
+          // Track current hole
+          var holeDisplay = '';
+          if (c.status && c.status.type) {
+            var stName = c.status.type.name || '';
+            if (stName === 'complete' || c.status.type.completed) holeDisplay = 'F';
+            else if (c.status.displayValue) holeDisplay = c.status.displayValue;
+            else if (c.status.period) holeDisplay = 'R' + c.status.period;
+          }
+          if (c.linescores) {
+            var totalRounds = c.linescores.length;
+            if (!holeDisplay && totalRounds > 0) holeDisplay = 'R' + totalRounds;
+          }
+          golferHoles[match] = holeDisplay || '--';
 
           // Extract per-round scores from linescores to find worst R3/R4
           if (c.linescores && c.linescores.length >= 3) {
@@ -804,6 +902,8 @@ async function fetchLiveScores() {
     if (statusEl) { statusEl.className = 'api-status connected'; statusEl.innerHTML = '<span class="live-dot"></span> Connected to ESPN — ' + matched + ' golfers matched. Last updated: ' + now; }
     document.getElementById('liveDot').style.display = 'inline-block';
     document.getElementById('refreshInfo').textContent = 'Last updated: ' + now;
+    var slu = document.getElementById('standingsLastUpdated');
+    if (slu) slu.innerHTML = '<span class="live-dot"></span> Updated: ' + now;
     showToast('Scores updated — ' + matched + ' golfers matched');
   } catch (err) {
     if (statusEl) { statusEl.className = 'api-status disconnected'; statusEl.textContent = 'Could not fetch live scores: ' + err.message + '. Enter scores manually.'; }
@@ -852,7 +952,7 @@ function updateStatus(golfer, value) {
 }
 function clearAllScores() {
   if (!confirm('Clear all scores?')) return;
-  golferScores = {}; golferStatus = {};
+  golferScores = {}; golferStatus = {}; golferHoles = {};
   worstRounds = { r3: null, r4: null };
   saveScores(); saveWorstRounds(); renderScoreInputs(); renderTeams(); renderStandings();
   var r3El = document.getElementById('worstR3');
@@ -936,12 +1036,20 @@ db.ref('favorites').on('value', function(snap) {
 // ===== SEARCH =====
 function filterLeaderboard(query) {
   var rows = document.querySelectorAll('#tournamentLeaderboard tbody tr');
-  var q = query.toLowerCase().trim();
-  rows.forEach(function(row) {
-    if (!q) { row.style.display = ''; return; }
-    var text = row.textContent.toLowerCase();
-    row.style.display = text.includes(q) ? '' : 'none';
-  });
+  var q = (query || '').toLowerCase().trim();
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i];
+    if (!q) { row.style.display = ''; continue; }
+    // Search through all cell text content
+    var found = false;
+    for (var j = 0; j < row.cells.length; j++) {
+      if (row.cells[j].textContent.toLowerCase().indexOf(q) !== -1) {
+        found = true;
+        break;
+      }
+    }
+    row.style.display = found ? '' : 'none';
+  }
 }
 
 // INIT — Firebase listeners above handle rendering automatically
