@@ -396,9 +396,9 @@ function saveWorstRounds() {
 function refreshAllViews() {
   renderDraft();
   updatePenaltyPreview();
-  if (document.getElementById('tab-scores').classList.contains('active')) renderScoreInputs();
-  if (document.getElementById('tab-teams').classList.contains('active')) renderTeams();
-  if (document.getElementById('tab-leaderboard').classList.contains('active')) renderStandings();
+  renderScoreInputs();
+  renderTeams();
+  renderStandings();
 }
 
 // Listen for real-time changes from Firebase
@@ -1129,6 +1129,20 @@ restoreTab();
 // Auto-fetch scores on load and every 60 seconds
 fetchLiveScores();
 setInterval(fetchLiveScores, 60000);
+
+// Re-fetch immediately when user comes back to the tab (mobile browsers throttle background timers)
+var lastFetchTime = Date.now();
+document.addEventListener('visibilitychange', function() {
+  if (!document.hidden && (Date.now() - lastFetchTime > 30000)) {
+    fetchLiveScores();
+  }
+});
+// Wrap fetchLiveScores to track last fetch time
+var _origFetch = fetchLiveScores;
+fetchLiveScores = async function() {
+  lastFetchTime = Date.now();
+  return _origFetch();
+};
 </script>
 </body>
 </html>
