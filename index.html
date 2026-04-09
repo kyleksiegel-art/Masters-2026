@@ -322,11 +322,6 @@
     </p>
     <div class="score-input-grid" id="scoreInputs"></div>
   </div>
-  <div class="settings-panel" style="border-color:var(--masters-gold); margin-top:16px;">
-    <h3 style="color:var(--masters-gold);">ESPN Debug (Temporary)</h3>
-    <p style="color:var(--text-dim); margin-bottom:8px; font-size:0.85em;">Shows raw ESPN data for the first golfer. Screenshot this and send it to fix the Thru column.</p>
-    <pre id="espnDebugOutput" style="background:#0a0f0d; color:#4ecdc4; padding:12px; border-radius:6px; font-size:0.75em; overflow-x:auto; max-height:400px; overflow-y:auto; white-space:pre-wrap; word-break:break-all;">Click "Fetch Live Scores" to see debug data...</pre>
-  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -850,32 +845,9 @@ async function fetchLiveScores() {
     var allR3scores = []; // collect R3 scores to par from active golfers
     var allR4scores = []; // collect R4 scores to par from active golfers
 
-    // Log first competitor's full structure for debugging
+    // Debug: log first competitor structure
     if (competitors.length > 0) {
-      var dbgEl = document.getElementById('espnDebugOutput');
-      if (dbgEl) {
-        var sampleC = competitors[0];
-        var debugInfo = {
-          'ALL_KEYS': Object.keys(sampleC),
-          'score': sampleC.score,
-          'status': sampleC.status,
-          'statistics': sampleC.statistics ? sampleC.statistics.slice(0, 5) : 'none',
-          'completedHoles': sampleC.completedHoles,
-          'athlete_name': sampleC.athlete ? sampleC.athlete.displayName : 'none',
-          'linescores': sampleC.linescores
-        };
-        // Also check for any key containing "hole" or "thru"
-        Object.keys(sampleC).forEach(function(k) {
-          var kl = k.toLowerCase();
-          if (kl.includes('hole') || kl.includes('thru') || kl.includes('round') || kl.includes('position')) {
-            debugInfo['FOUND_' + k] = sampleC[k];
-          }
-        });
-        dbgEl.textContent = JSON.stringify(debugInfo, null, 2);
-      }
-      console.log('[Masters Debug] Sample competitor keys:', Object.keys(sampleC));
-      console.log('[Masters Debug] Sample status:', JSON.stringify(sampleC.status));
-      console.log('[Masters Debug] FULL competitor:', JSON.stringify(sampleC).substring(0, 2000));
+      console.log('[Masters] ESPN data keys:', Object.keys(competitors[0]), 'Total competitors:', competitors.length);
     }
 
     competitors.forEach(function(c) {
@@ -906,79 +878,61 @@ async function fetchLiveScores() {
         if (possibleMatch) console.log('[Masters Debug] UNMATCHED: ESPN "' + name + '" might be "' + possibleMatch + '"');
       }
       if (match) {
-        var status_c = c.status && c.status.type ? (c.status.type.name || '').toLowerCase() : '';
-        var isCut = status_c === 'cut' || status_c === 'status_cut';
+        // ESPN golf has no "status" field — detect cut from type field or score context
+        var isCut = false;
+        if (c.type) {
+          var cType = (typeof c.type === 'string' ? c.type : (c.type.abbreviation || c.type.name || '')).toLowerCase();
+          if (cType === 'cut' || cType === 'mc' || cType === 'wd' || cType === 'dq') isCut = true;
+        }
+        // Also check if c.status exists (some ESPN versions include it)
+        if (!isCut && c.status && c.status.type) {
+          var stName = (c.status.type.name || '').toLowerCase();
+          if (stName === 'cut' || stName === 'status_cut') isCut = true;
+        }
+
+        // Parse score to par (works same for cut and active golfers)
+        var rawScore = c.score !== undefined ? c.score : null;
+        var scoreToPar;
+        if (rawScore === 'E' || rawScore === 'e') scoreToPar = 0;
+        else scoreToPar = rawScore !== null ? parseInt(rawScore) : null;
 
         if (isCut) {
-          // For cut golfers, store their R2 cumulative score to par
           golferStatus[match] = 'cut';
-          var rawScoreCut = c.score !== undefined ? c.score : null;
-          var scoreToParCut;
-          if (rawScoreCut === 'E' || rawScoreCut === 'e') scoreToParCut = 0;
-          else scoreToParCut = rawScoreCut !== null ? parseInt(rawScoreCut) : null;
-          if (scoreToParCut !== null && !isNaN(scoreToParCut)) golferScores[match] = scoreToParCut;
+          if (scoreToPar !== null && !isNaN(scoreToPar)) golferScores[match] = scoreToPar;
           golferHoles[match] = 'MC';
         } else {
-          // Active golfer — store total tournament score to par
-          var rawScore = c.score !== undefined ? c.score : null;
-          var scoreToPar;
-          if (rawScore === 'E' || rawScore === 'e') scoreToPar = 0;
-          else scoreToPar = rawScore !== null ? parseInt(rawScore) : null;
           if (scoreToPar !== null && !isNaN(scoreToPar)) golferScores[match] = scoreToPar;
 
-          // Track current hole — try multiple ESPN field paths
-          var holeDisplay = '';
-          if (c.status && c.status.type) {
-            var stName = (c.status.type.name || '').toLowerCase();
-            var stDesc = (c.status.type.description || '').toLowerCase();
-            // Check if round/day is complete
-            if (stName === 'status_final' || stName === 'complete' || c.status.type.completed) {
-              holeDisplay = 'F';
+          // Track current hole from linescores hole-by-hole data
+          var holeDisplay = '--';
+          if (c.linescores && c.linescores.length > 0) {
+            // Find the current/latest round that has hole-by-hole data
+            var currentRoundIdx = -1;
+            for (var ri = c.linescores.length - 1; ri >= 0; ri--) {
+              if (c.linescores[ri].linescores && c.linescores[ri].linescores.length > 0) {
+                currentRoundIdx = ri;
+                break;
+              }
             }
-          }
-          // If not finished, look for thru/hole data
-          if (!holeDisplay) {
-            // Try c.status.thru (direct thru field)
-            if (c.status && c.status.thru !== undefined && c.status.thru !== null) {
-              holeDisplay = c.status.thru === 0 ? '--' : String(c.status.thru);
-            }
-            // Try c.status.hole
-            else if (c.status && c.status.hole !== undefined && c.status.hole !== null) {
-              holeDisplay = String(c.status.hole);
-            }
-            // Try c.completedHoles
-            else if (c.completedHoles !== undefined && c.completedHoles !== null) {
-              holeDisplay = c.completedHoles === 0 ? '--' : String(c.completedHoles);
-            }
-            // Try parsing thru from displayValue (might be "Thru 12", "1:30 PM", etc.)
-            else if (c.status && c.status.displayValue) {
-              var dv = c.status.displayValue;
-              var thruMatch = dv.match(/thru\s+(\d+)/i);
-              if (thruMatch) {
-                holeDisplay = thruMatch[1];
-              } else if (/^\d+$/.test(dv.trim())) {
-                holeDisplay = dv.trim(); // Plain number
-              } else if (dv.toLowerCase().includes('am') || dv.toLowerCase().includes('pm') || dv.includes(':')) {
-                holeDisplay = '--'; // Tee time, not started
+            if (currentRoundIdx >= 0) {
+              var holeScores = c.linescores[currentRoundIdx].linescores;
+              var holesPlayed = holeScores.length;
+              if (holesPlayed >= 18) {
+                holeDisplay = 'F'; // Finished the round
               } else {
-                holeDisplay = dv; // Use as-is
+                holeDisplay = String(holesPlayed); // Thru X holes
               }
             }
-            // Try statistics array for thru data
-            else if (c.statistics && Array.isArray(c.statistics)) {
-              var thruStat = c.statistics.find(function(s) {
-                return s.name === 'thru' || s.abbreviation === 'THRU';
-              });
-              if (thruStat && thruStat.displayValue) {
-                holeDisplay = thruStat.displayValue;
+            // If no hole-by-hole data at all but has round entries, check if rounds are complete
+            if (holeDisplay === '--' && c.linescores.length > 0) {
+              // If the latest round has a total value but no hole data, round is complete
+              var lastRound = c.linescores[c.linescores.length - 1];
+              if (lastRound.value && !lastRound.linescores) {
+                holeDisplay = 'F'; // Completed round with no active hole data
               }
             }
           }
-          // Log for debugging
-          if (!holeDisplay || holeDisplay === '--') {
-            console.log('[Masters Debug] No thru data for ' + match + ': status=' + JSON.stringify(c.status) + ', completedHoles=' + c.completedHoles);
-          }
-          golferHoles[match] = holeDisplay || '--';
+          golferHoles[match] = holeDisplay;
 
           // Extract per-round scores from linescores to find worst R3/R4
           if (c.linescores && c.linescores.length >= 3) {
