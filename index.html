@@ -844,7 +844,6 @@ async function fetchLiveScores() {
     var PAR = 72; // Augusta National par
     var allR3scores = []; // collect R3 scores to par from active golfers
     var allR4scores = []; // collect R4 scores to par from active golfers
-    var unmatchedList = []; // track unmatched ESPN names
 
     competitors.forEach(function(c) {
       var name = c.athlete ? c.athlete.displayName : '';
@@ -867,17 +866,18 @@ async function fetchLiveScores() {
         // Bidirectional contains (full name)
         if (gNorm.includes(normName) || normName.includes(gNorm)) return true;
         // First initial + last name match (e.g., "S.W. Kim" → "Si Woo Kim")
-        // Requires BOTH last name match AND same first initial to avoid wrong golfer
         var gLast = gNorm.split(' ').pop();
         var eLast = normName.split(' ').pop();
         var gFirst = gNorm.split(' ')[0];
         var eFirst = normName.split(' ')[0];
         if (gLast.length > 2 && gLast === eLast && gFirst[0] === eFirst[0]) return true;
+        // Word overlap: if 2+ words match between names (handles name order differences)
+        var gWords = gNorm.split(/[\s\-]+/);
+        var eWords = normName.split(/[\s\-]+/);
+        var commonWords = gWords.filter(function(w) { return w.length > 1 && eWords.indexOf(w) >= 0; });
+        if (commonWords.length >= 2) return true;
         return false;
       });
-      if (!match) {
-        unmatchedList.push(name + (c.score !== undefined ? ' (' + c.score + ')' : ' (no score)'));
-      }
       if (match) {
         // ESPN golf has no "status" field — detect cut from type field or score context
         var isCut = false;
